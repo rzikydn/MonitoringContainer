@@ -35,8 +35,30 @@
 
 /* Header Section (Team Switcher) */
 .sidebar-header-section {
-  padding: 8px;
-  border-bottom: 1px solid transparent;
+  height: 56px;
+  min-height: 56px;
+  max-height: 56px;
+  padding: 0 8px;
+  border-bottom: 1px solid #F1F5F9;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.sidebar-header-section .sidebar-menu-list {
+  width: 100%;
+}
+
+.sidebar-header-section .sidebar-menu-item {
+  width: 100%;
+}
+
+.sidebar-header-section .sidebar-menu-button.lg {
+  height: 40px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
 }
 
 /* Body Scroll */
@@ -249,13 +271,34 @@
   transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 
+.sidebar-menu-action-dropdown {
+  position: absolute !important;
+  right: 6px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: auto !important;
+  height: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 5;
+}
+
+.sidebar-menu-action-dropdown .sidebar-menu-action {
+  position: static;
+  transform: none;
+  right: auto;
+  top: auto;
+}
+
 .sidebar-menu-action svg {
   width: 14px;
   height: 14px;
 }
 
 .sidebar-menu-item:hover .sidebar-menu-action,
-.sidebar-menu-action.show-on-hover:hover {
+.sidebar-menu-action.show-on-hover:hover,
+.sidebar-menu-action[data-state='open'] {
   opacity: 1;
 }
 
@@ -327,12 +370,16 @@
 /* Header in Inset */
 .sidebar-inset-header {
   height: 56px;
+  min-height: 56px;
+  max-height: 56px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 16px;
   border-bottom: 1px solid #F1F5F9;
   flex-shrink: 0;
+  box-sizing: border-box;
+  background-color: #FFFFFF;
 }
 
 .sidebar-trigger-btn {
@@ -347,6 +394,9 @@
   cursor: pointer;
   color: #475569;
   transition: all 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
 }
 
 .sidebar-trigger-btn:hover {
@@ -360,7 +410,8 @@
   width: 1px;
   height: 18px;
   background-color: #E2E8F0;
-  margin: 0 6px;
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 .sidebar-separator.horizontal {
@@ -384,18 +435,23 @@
   padding: 0;
   margin: 0;
   font-size: 0.84rem;
+  line-height: 1;
 }
 
 .breadcrumb-item {
   display: flex;
   align-items: center;
   gap: 6px;
+  line-height: 1;
 }
 
 .breadcrumb-link {
   color: #64748B;
   text-decoration: none;
   transition: color 0.15s ease;
+  display: flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .breadcrumb-link:hover {
@@ -405,10 +461,20 @@
 .breadcrumb-page {
   font-weight: 600;
   color: #0F172A;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.breadcrumb-separator {
+  display: flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .breadcrumb-sep-icon {
   color: #94A3B8;
+  display: block;
 }
 
 /* Inset Main Content Area */

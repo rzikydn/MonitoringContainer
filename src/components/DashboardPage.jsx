@@ -536,7 +536,7 @@ export default function DashboardPage({ user, onLogout }) {
                     <span>{item.name}</span>
                   </SidebarMenuButton>
 
-                  <DropdownMenu>
+                  <DropdownMenu className="sidebar-menu-action-dropdown">
                     <DropdownMenuTrigger asChild>
                       <SidebarMenuAction showOnHover>
                         <MoreHorizontal />
@@ -545,8 +545,8 @@ export default function DashboardPage({ user, onLogout }) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       className="w-48 rounded-lg"
-                      side={isMobile ? 'bottom' : 'right'}
-                      align={isMobile ? 'end' : 'start'}
+                      side="bottom"
+                      align="end"
                     >
                       <DropdownMenuItem
                         onClick={() => {
@@ -585,7 +585,7 @@ export default function DashboardPage({ user, onLogout }) {
                   style={{ color: '#284C6E', fontWeight: 600 }}
                 >
                   <Plus style={{ color: '#284C6E' }} />
-                  <span>+ New Namespace</span>
+                  <span>New Namespace</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -725,30 +725,28 @@ export default function DashboardPage({ user, onLogout }) {
       </Sidebar>
 
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 16px' }}>
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="#" onClick={(e) => { e.preventDefault(); setActiveTab('cluster-overview'); }}>
-                    {activeCluster.name}
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="#" onClick={(e) => e.preventDefault()}>
-                    {breadcrumb.category}
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{breadcrumb.page}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
+        <header className="sidebar-inset-header">
+          <SidebarTrigger />
+          <Separator orientation="vertical" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#" onClick={(e) => { e.preventDefault(); setActiveTab('cluster-overview'); }}>
+                  {activeCluster.name}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#" onClick={(e) => e.preventDefault()}>
+                  {breadcrumb.category}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{breadcrumb.page}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </header>
 
         {/* Content View Routing */}

@@ -9,7 +9,7 @@ const DropdownContext = createContext({
   triggerRef: null,
 });
 
-export function DropdownMenu({ children }) {
+export function DropdownMenu({ children, className = '', style }) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef(null);
 
@@ -18,7 +18,15 @@ export function DropdownMenu({ children }) {
 
   return (
     <DropdownContext.Provider value={{ isOpen, setIsOpen, toggle, close, triggerRef }}>
-      <div className="dropdown-menu-root" style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+      <div
+        className={`dropdown-menu-root ${className}`}
+        style={{
+          position: 'relative',
+          display: 'inline-block',
+          width: '100%',
+          ...style,
+        }}
+      >
         {children}
       </div>
     </DropdownContext.Provider>
