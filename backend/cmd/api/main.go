@@ -109,13 +109,18 @@ func ingressControllerNamespace() string {
 	return "ingress-nginx"
 }
 
-func ingressMetricsPort() int {
-	if v := os.Getenv("INGRESS_METRICS_PORT"); v != "" {
-		if port, err := strconv.Atoi(v); err == nil {
-			return port
-		}
+// ingressMetricsServiceName: nama Service NodePort yang meng-expose port metrics
+// ingress-nginx-controller (10254) supaya bisa diakses lewat <node-ip>:<nodePort> —
+// pod IP overlay Flannel (10.42.x.x) terbukti tidak terjangkau dari tempat backend
+// ini berjalan, jadi harus lewat NodePort, sama seperti node-exporter/kubelet.
+// Buat service ini manual: kubectl expose deployment ingress-nginx-controller
+// -n ingress-nginx --type=NodePort --port=10254 --target-port=10254
+// --name=ingress-nginx-controller-metrics
+func ingressMetricsServiceName() string {
+	if v := os.Getenv("INGRESS_METRICS_SERVICE"); v != "" {
+		return v
 	}
-	return 10254
+	return "ingress-nginx-controller-metrics"
 }
 
 // nginxSampleCache: sampel counter terakhir dari ingress-nginx-controller,
@@ -550,27 +555,49 @@ func main() {
 		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 		defer cancel()
 
-		pods, err := clientset.CoreV1().Pods(ingressControllerNamespace()).List(requestContext, metav1.ListOptions{})
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": err.Error()})
+		svc, svcErr := clientset.CoreV1().Services(ingressControllerNamespace()).Get(requestContext, ingressMetricsServiceName(), metav1.GetOptions{})
+		if svcErr != nil {
+			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": fmt.Sprintf("Service %s/%s belum ada — buat dulu: kubectl expose deployment ingress-nginx-controller -n %s --type=NodePort --port=10254 --target-port=10254 --name=%s (detail: %v)", ingressControllerNamespace(), ingressMetricsServiceName(), ingressControllerNamespace(), ingressMetricsServiceName(), svcErr)})
 			return
 		}
 
-		var podIP string
-		for _, p := range pods.Items {
-			if strings.Contains(p.Name, "controller") && p.Status.PodIP != "" {
-				podIP = p.Status.PodIP
+		nodePort := int32(0)
+		for _, p := range svc.Spec.Ports {
+			if p.NodePort != 0 {
+				nodePort = p.NodePort
 				break
 			}
 		}
-		if podIP == "" {
-			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": "ingress controller pod tidak ditemukan"})
+		if nodePort == 0 {
+			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": fmt.Sprintf("Service %s/%s ditemukan tapi bukan NodePort (tidak ada nodePort di spec.ports)", ingressControllerNamespace(), ingressMetricsServiceName())})
 			return
 		}
 
-		snap, fetchErr := ingressmetrics.Fetch(podIP, ingressMetricsPort(), 3*time.Second)
+		nodes, nodesErr := clientset.CoreV1().Nodes().List(requestContext, metav1.ListOptions{})
+		if nodesErr != nil {
+			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": nodesErr.Error()})
+			return
+		}
+		var nodeIP string
+		for _, node := range nodes.Items {
+			for _, address := range node.Status.Addresses {
+				if address.Type == corev1.NodeInternalIP {
+					nodeIP = address.Address
+					break
+				}
+			}
+			if nodeIP != "" {
+				break
+			}
+		}
+		if nodeIP == "" {
+			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": "tidak ada node dengan InternalIP"})
+			return
+		}
+
+		snap, fetchErr := ingressmetrics.Fetch(nodeIP, int(nodePort), 3*time.Second)
 		if fetchErr != nil {
-			log.Printf("Gagal mengambil metrics ingress-nginx dari pod %s (%s): %v", podIP, ingressControllerNamespace(), fetchErr)
+			log.Printf("Gagal mengambil metrics ingress-nginx via %s:%d: %v", nodeIP, nodePort, fetchErr)
 			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": fetchErr.Error()})
 			return
 		}
