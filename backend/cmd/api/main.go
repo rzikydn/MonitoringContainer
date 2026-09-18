@@ -20,12 +20,14 @@ import (
 	"k8s-dashboard-backend/pkg/k8s"
 	"k8s-dashboard-backend/pkg/kubeletmetrics"
 	"k8s-dashboard-backend/pkg/nodeexporter"
+	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -603,6 +605,127 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": deployList})
+	})
+
+	// Endpoint Deploy App: sumber data untuk Fitur 11 (Zero-CLI Deployment & App
+	// Management). Bikin Deployment + Service sungguhan dari form sederhana —
+	// pengganti `kubectl apply`/`docker run`, bukan sekadar respons sukses palsu.
+	r.POST("/api/v1/apps/deploy", func(c *gin.Context) {
+		var body struct {
+			AppName   string `json:"appName"`
+			Namespace string `json:"namespace"`
+			Image     string `json:"image"`
+			Port      string `json:"port"`
+			Replicas  int    `json:"replicas"`
+			CPULimit  string `json:"cpuLimit"`
+			RAMLimit  string `json:"ramLimit"`
+			EnvVars   []struct {
+				Key   string `json:"key"`
+				Value string `json:"value"`
+			} `json:"envVars"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Payload tidak valid: " + err.Error()})
+			return
+		}
+		if body.AppName == "" || body.Namespace == "" || body.Image == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "appName, namespace, dan image wajib diisi"})
+			return
+		}
+
+		portNum, portErr := strconv.ParseInt(body.Port, 10, 32)
+		if portErr != nil || portNum <= 0 || portNum > 65535 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Port tidak valid"})
+			return
+		}
+
+		replicas := int32(body.Replicas)
+		if replicas <= 0 {
+			replicas = 1
+		}
+
+		cpuQty, cpuErr := resource.ParseQuantity(body.CPULimit)
+		if cpuErr != nil {
+			cpuQty = resource.MustParse("500m")
+		}
+		memQty, memErr := resource.ParseQuantity(body.RAMLimit)
+		if memErr != nil {
+			memQty = resource.MustParse("512Mi")
+		}
+
+		var envList []corev1.EnvVar
+		for _, e := range body.EnvVars {
+			if e.Key == "" {
+				continue
+			}
+			envList = append(envList, corev1.EnvVar{Name: e.Key, Value: e.Value})
+		}
+
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		labels := map[string]string{"app": body.AppName, "managed-by": "monitoring-dashboard"}
+
+		deployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: body.AppName, Labels: labels},
+			Spec: appsv1.DeploymentSpec{
+				Replicas: &replicas,
+				Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": body.AppName}},
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": body.AppName}},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  body.AppName,
+								Image: body.Image,
+								Ports: []corev1.ContainerPort{{ContainerPort: int32(portNum)}},
+								Env:   envList,
+								Resources: corev1.ResourceRequirements{
+									Limits: corev1.ResourceList{
+										corev1.ResourceCPU:    cpuQty,
+										corev1.ResourceMemory: memQty,
+									},
+									// Requests disamakan dengan Limits (QoS Guaranteed) — penting
+									// karena kalau namespace-nya punya ResourceQuota (Fitur 4),
+									// pod TANPA request eksplisit akan ditolak API server.
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU:    cpuQty,
+										corev1.ResourceMemory: memQty,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		createdDeployment, deployErr := clientset.AppsV1().Deployments(body.Namespace).Create(requestContext, deployment, metav1.CreateOptions{})
+		if deployErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat Deployment: " + deployErr.Error()})
+			return
+		}
+
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: body.AppName, Labels: labels},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{"app": body.AppName},
+				Ports: []corev1.ServicePort{
+					{Port: int32(portNum), TargetPort: intstr.FromInt(int(portNum))},
+				},
+			},
+		}
+		serviceCreated := true
+		if _, svcErr := clientset.CoreV1().Services(body.Namespace).Create(requestContext, svc, metav1.CreateOptions{}); svcErr != nil {
+			log.Printf("Gagal membuat Service untuk app %s di namespace %s: %v", body.AppName, body.Namespace, svcErr)
+			serviceCreated = false
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"message":        fmt.Sprintf("Deployment %s berhasil dibuat di namespace %s", body.AppName, body.Namespace),
+			"deploymentName": createdDeployment.Name,
+			"serviceCreated": serviceCreated,
+		})
 	})
 
 	// Endpoint Live Container Metrics: sumber data untuk Fitur 6.

@@ -424,19 +424,20 @@ export async function fetchAlerts() {
   }
 }
 
-// 7. Fitur 11: Zero-CLI Form Deployment
+// Fitur 11: Zero-CLI Deployment — bikin Deployment + Service sungguhan.
+// Tidak ada fallback "sukses palsu" — kalau gagal, error dilempar apa adanya
+// supaya form bisa menampilkan pesan error yang jujur ke user.
 export async function deployApplication(payload) {
-  try {
-    const res = await fetch(`${BASE_URL}/deploy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error('Deployment failed');
-    return await res.json();
-  } catch {
-    return { success: true, message: `App ${payload.appName} deployed successfully to namespace ${payload.namespace}!` };
+  const res = await fetch(`${BASE_URL}/api/v1/apps/deploy`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Gagal melakukan deploy');
   }
+  return await res.json();
 }
 
 // 8. Autentikasi User

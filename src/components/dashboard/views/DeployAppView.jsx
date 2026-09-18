@@ -1,21 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Rocket,
-  PlusCircle,
-  Cpu,
-  Layers,
   CheckCircle2,
-  HelpCircle,
+  AlertCircle,
   Plus,
   Trash2,
 } from 'lucide-react';
-import { deployApplication } from '../../../services/api';
+import { deployApplication, fetchNamespaces } from '../../../services/api';
 
 
 export default function DeployAppView({ onDeployed }) {
   const [appName, setAppName] = useState('');
   const [image, setImage] = useState('');
-  const [namespace, setNamespace] = useState('asset-mgmt');
+  const [namespaces, setNamespaces] = useState([]);
+  const [namespace, setNamespace] = useState('');
   const [port, setPort] = useState('8080');
   const [replicas, setReplicas] = useState(2);
   const [cpuLimit, setCpuLimit] = useState('500m');
@@ -23,6 +21,14 @@ export default function DeployAppView({ onDeployed }) {
   const [envVars, setEnvVars] = useState([{ key: 'NODE_ENV', value: 'production' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deployedSuccess, setDeployedSuccess] = useState(false);
+  const [deployError, setDeployError] = useState('');
+
+  useEffect(() => {
+    fetchNamespaces().then((data) => {
+      setNamespaces(data);
+      setNamespace((current) => current || (data[0] && data[0].name) || '');
+    });
+  }, []);
 
   const addEnvVar = () => {
     setEnvVars([...envVars, { key: '', value: '' }]);
@@ -38,16 +44,21 @@ export default function DeployAppView({ onDeployed }) {
     setEnvVars(updated);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setDeployError('');
+    setDeployedSuccess(false);
 
-    deployApplication({ appName, image, namespace, port, replicas, cpuLimit, ramLimit, envVars })
-      .then((res) => {
-        setIsSubmitting(false);
-        setDeployedSuccess(true);
-        if (onDeployed) onDeployed();
-      });
+    try {
+      await deployApplication({ appName, image, namespace, port, replicas, cpuLimit, ramLimit, envVars });
+      setDeployedSuccess(true);
+      if (onDeployed) onDeployed();
+    } catch (err) {
+      setDeployError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -57,7 +68,7 @@ export default function DeployAppView({ onDeployed }) {
         <div className="view-title-group">
           <h2>Deploy New App (Zero-CLI Wizard)</h2>
           <p>
-            Launch containerized microservices into the cluster with automatic Service and Ingress provisioning
+            Launch containerized microservices into the cluster with automatic Deployment and Service provisioning — pengganti kubectl apply/docker run
           </p>
         </div>
       </div>
@@ -77,14 +88,42 @@ export default function DeployAppView({ onDeployed }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <CheckCircle2 style={{ width: '20px', height: '20px', color: '#15803D' }} />
             <div>
-              <div style={{ fontWeight: 700, color: '#15803D' }}>Deployment Dispatched!</div>
+              <div style={{ fontWeight: 700, color: '#15803D' }}>Deployment Created!</div>
               <div style={{ fontSize: '0.82rem', color: '#166534' }}>
-                Pod <strong>{appName}</strong> with {replicas} replicas is rolling out to namespace <strong>{namespace}</strong>.
+                Deployment + Service <strong>{appName}</strong> dengan {replicas} replica berhasil dibuat di namespace <strong>{namespace}</strong>.
               </div>
             </div>
           </div>
           <button
             onClick={() => setDeployedSuccess(false)}
+            className="btn-dash btn-dash-secondary btn-dash-sm"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {deployError && (
+        <div
+          style={{
+            backgroundColor: '#FEF2F2',
+            border: '1px solid #FECACA',
+            borderRadius: '10px',
+            padding: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertCircle style={{ width: '20px', height: '20px', color: '#B91C1C' }} />
+            <div>
+              <div style={{ fontWeight: 700, color: '#B91C1C' }}>Deployment Failed</div>
+              <div style={{ fontSize: '0.82rem', color: '#991B1B' }}>{deployError}</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setDeployError('')}
             className="btn-dash btn-dash-secondary btn-dash-sm"
           >
             Dismiss
@@ -116,9 +155,10 @@ export default function DeployAppView({ onDeployed }) {
               onChange={(e) => setNamespace(e.target.value)}
               className="dash-form-select"
             >
-              <option value="asset-mgmt">asset-mgmt (VM 1)</option>
-              <option value="spending-mgmt">spending-mgmt (VM 2)</option>
-              <option value="core-services">core-services</option>
+              <option value="">Select Namespace</option>
+              {namespaces.map((ns) => (
+                <option key={ns.name} value={ns.name}>{ns.name}</option>
+              ))}
             </select>
           </div>
         </div>
