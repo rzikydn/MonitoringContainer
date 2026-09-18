@@ -230,25 +230,33 @@ func main() {
 		}
 
 		// Pola "template-tenant": setiap namespace baru langsung dibekali
-		// ResourceQuota (batas agregat CPU/RAM sesuai pilihan form) + LimitRange
+		// ResourceQuota (batas agregat CPU/RAM/pods sesuai pilihan form) + LimitRange
 		// (default request/limit per container). LimitRange penting karena begitu
 		// ResourceQuota dengan requests.cpu/requests.memory aktif, semua pod baru
 		// WAJIB mencantumkan resource request eksplisit atau ditolak API server.
+		// Penamaan & rasio limit:request (2x) mengikuti template yang sudah dipakai
+		// manual di namespace spending-mgmt (quota-<ns>, limit-<ns>, dst).
 		quotaApplied := true
-		cpuQty, cpuErr := resource.ParseQuantity(body.CPUQuota)
-		memQty, memErr := resource.ParseQuantity(body.MemoryQuota + "Gi")
+		cpuRequestQty, cpuErr := resource.ParseQuantity(body.CPUQuota)
+		memRequestQty, memErr := resource.ParseQuantity(body.MemoryQuota + "Gi")
 		if cpuErr != nil || memErr != nil {
 			log.Printf("Nilai quota tidak valid untuk namespace %s (cpu=%q, memory=%q): cpuErr=%v memErr=%v", body.Name, body.CPUQuota, body.MemoryQuota, cpuErr, memErr)
 			quotaApplied = false
 		} else {
+			cpuLimitQty := cpuRequestQty.DeepCopy()
+			cpuLimitQty.Add(cpuRequestQty)
+			memLimitQty := memRequestQty.DeepCopy()
+			memLimitQty.Add(memRequestQty)
+
 			rq := &corev1.ResourceQuota{
-				ObjectMeta: metav1.ObjectMeta{Name: "default-quota"},
+				ObjectMeta: metav1.ObjectMeta{Name: "quota-" + body.Name},
 				Spec: corev1.ResourceQuotaSpec{
 					Hard: corev1.ResourceList{
-						corev1.ResourceRequestsCPU:    cpuQty,
-						corev1.ResourceLimitsCPU:      cpuQty,
-						corev1.ResourceRequestsMemory: memQty,
-						corev1.ResourceLimitsMemory:   memQty,
+						corev1.ResourceRequestsCPU:    cpuRequestQty,
+						corev1.ResourceLimitsCPU:      cpuLimitQty,
+						corev1.ResourceRequestsMemory: memRequestQty,
+						corev1.ResourceLimitsMemory:   memLimitQty,
+						corev1.ResourcePods:           resource.MustParse("10"),
 					},
 				},
 			}
@@ -258,7 +266,7 @@ func main() {
 			}
 
 			lr := &corev1.LimitRange{
-				ObjectMeta: metav1.ObjectMeta{Name: "default-limits"},
+				ObjectMeta: metav1.ObjectMeta{Name: "limit-" + body.Name},
 				Spec: corev1.LimitRangeSpec{
 					Limits: []corev1.LimitRangeItem{
 						{
@@ -309,32 +317,61 @@ func main() {
 			networkPolicyApplied = false
 		}
 
-		// Isolasi RBAC: ServiceAccount "namespace-admin" khusus namespace ini, diikat ke
-		// ClusterRole bawaan "edit" lewat RoleBinding (bukan ClusterRoleBinding) —
-		// RoleBinding membuat hak aksesnya berlaku HANYA di namespace ini walau
-		// Role-nya sendiri cluster-wide, jadi tidak bisa menyentuh namespace lain
-		// ataupun resource cluster-scoped (Node, Namespace, dll — "edit" tidak
-		// mencakup itu). Belum tersambung ke sistem login dashboard (masih dummy
-		// auth), ini fondasi identitas per-tenant untuk nanti.
+		// Isolasi RBAC: mengikuti pola yang sudah dipakai manual di namespace
+		// spending-mgmt — Role kustom "<namespace>-admin-role" (bukan ClusterRole
+		// bawaan), ServiceAccount "dev-<namespace>", diikat lewat RoleBinding
+		// "bind-<namespace>-admin". RoleBinding membuat hak aksesnya berlaku HANYA
+		// di namespace ini, tidak bisa menyentuh namespace lain. Rules di bawah ini
+		// TEBAKAN awal (izin umum level "edit" untuk resource namespaced biasa) —
+		// perlu disesuaikan begitu isi Role asli (spending-mgmt-admin-role) dicek.
+		// Belum tersambung ke sistem login dashboard (masih dummy auth), ini
+		// fondasi identitas per-tenant untuk nanti.
 		rbacApplied := true
-		sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "namespace-admin"}}
+		roleName := body.Name + "-admin-role"
+		role := &rbacv1.Role{
+			ObjectMeta: metav1.ObjectMeta{Name: roleName},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods", "pods/log", "pods/exec", "services", "configmaps", "secrets", "persistentvolumeclaims", "events"},
+					Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+				},
+				{
+					APIGroups: []string{"apps"},
+					Resources: []string{"deployments", "replicasets", "statefulsets", "daemonsets"},
+					Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+				},
+				{
+					APIGroups: []string{"batch"},
+					Resources: []string{"jobs", "cronjobs"},
+					Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+				},
+			},
+		}
+		if _, roleErr := clientset.RbacV1().Roles(body.Name).Create(requestContext, role, metav1.CreateOptions{}); roleErr != nil {
+			log.Printf("Gagal membuat Role %s untuk namespace %s: %v", roleName, body.Name, roleErr)
+			rbacApplied = false
+		}
+
+		saName := "dev-" + body.Name
+		sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: saName}}
 		if _, saErr := clientset.CoreV1().ServiceAccounts(body.Name).Create(requestContext, sa, metav1.CreateOptions{}); saErr != nil {
-			log.Printf("Gagal membuat ServiceAccount namespace-admin untuk namespace %s: %v", body.Name, saErr)
+			log.Printf("Gagal membuat ServiceAccount %s untuk namespace %s: %v", saName, body.Name, saErr)
 			rbacApplied = false
 		} else {
 			rb := &rbacv1.RoleBinding{
-				ObjectMeta: metav1.ObjectMeta{Name: "namespace-admin-edit"},
+				ObjectMeta: metav1.ObjectMeta{Name: "bind-" + body.Name + "-admin"},
 				RoleRef: rbacv1.RoleRef{
 					APIGroup: "rbac.authorization.k8s.io",
-					Kind:     "ClusterRole",
-					Name:     "edit",
+					Kind:     "Role",
+					Name:     roleName,
 				},
 				Subjects: []rbacv1.Subject{
-					{Kind: "ServiceAccount", Name: "namespace-admin", Namespace: body.Name},
+					{Kind: "ServiceAccount", Name: saName, Namespace: body.Name},
 				},
 			}
 			if _, rbErr := clientset.RbacV1().RoleBindings(body.Name).Create(requestContext, rb, metav1.CreateOptions{}); rbErr != nil {
-				log.Printf("Gagal membuat RoleBinding namespace-admin-edit untuk namespace %s: %v", body.Name, rbErr)
+				log.Printf("Gagal membuat RoleBinding bind-%s-admin untuk namespace %s: %v", body.Name, body.Name, rbErr)
 				rbacApplied = false
 			}
 		}
