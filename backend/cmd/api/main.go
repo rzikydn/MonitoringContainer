@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s-dashboard-backend/pkg/k8s"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 var clusterOverviewCache struct {
@@ -19,9 +20,17 @@ var clusterOverviewCache struct {
 
 func main() {
 	// 1. Inisialisasi K8s Client
-	clientset, err := k8s.InitClient()
+	clientset, restConfig, err := k8s.InitClient()
 	if err != nil {
 		log.Fatalf("Gagal terhubung ke Kubernetes: %v", err)
+	}
+
+	// Metrics client (metrics.k8s.io) untuk data CPU/RAM usage real.
+	// Butuh metrics-server terpasang di cluster; jika tidak ada, endpoint
+	// nodes.metrics.k8s.io akan gagal saat dipanggil dan usage dilaporkan "unavailable".
+	metricsClient, err := metricsv.NewForConfig(restConfig)
+	if err != nil {
+		log.Printf("Peringatan: gagal membuat metrics client: %v (usage CPU/RAM tidak akan tersedia)", err)
 	}
 
 	// 2. Setup Gin Router
@@ -113,7 +122,37 @@ func main() {
 			}
 		}
 
+		// Ambil usage CPU/RAM real per node dari metrics-server (metrics.k8s.io).
+		// Jika metrics-server tidak terpasang/tidak bisa dihubungi, usage tetap
+		// dilaporkan sebagai tidak tersedia (bukan angka estimasi/palsu).
+		metricsAvailable := false
+		nodeUsage := map[string]struct {
+			cpuMilli    int64
+			memoryBytes int64
+		}{}
+		if metricsClient != nil {
+			nodeMetricsList, metricsErr := metricsClient.MetricsV1beta1().NodeMetricses().List(requestContext, metav1.ListOptions{})
+			if metricsErr != nil {
+				log.Printf("metrics-server tidak tersedia, usage CPU/RAM tidak bisa diambil: %v", metricsErr)
+			} else {
+				metricsAvailable = true
+				for _, nm := range nodeMetricsList.Items {
+					nodeUsage[nm.Name] = struct {
+						cpuMilli    int64
+						memoryBytes int64
+					}{
+						cpuMilli:    nm.Usage.Cpu().MilliValue(),
+						memoryBytes: nm.Usage.Memory().Value(),
+					}
+				}
+			}
+		}
+
 		var nodeList []map[string]interface{}
+		var totalCpuCapacityMilli int64
+		var totalMemoryCapacityBytes int64
+		var totalCpuUsageMilli int64
+		var totalMemoryUsageBytes int64
 		for _, node := range nodes.Items {
 			nodeIP := "N/A"
 			nodeRole := "Worker"
@@ -134,15 +173,41 @@ func main() {
 				}
 			}
 
-			nodeList = append(nodeList, map[string]interface{}{
+			nodeReady := "Unknown"
+			for _, condition := range node.Status.Conditions {
+				if condition.Type == "Ready" {
+					if condition.Status == "True" {
+						nodeReady = "Ready"
+					} else {
+						nodeReady = "NotReady"
+					}
+					break
+				}
+			}
+
+			cpuCapacityMilli := node.Status.Capacity.Cpu().MilliValue()
+			memoryCapacityBytes := node.Status.Capacity.Memory().Value()
+			totalCpuCapacityMilli += cpuCapacityMilli
+			totalMemoryCapacityBytes += memoryCapacityBytes
+
+			nodeEntry := map[string]interface{}{
 				"name":         node.Name,
 				"role":         nodeRole,
+				"status":       nodeReady,
 				"cpu":          node.Status.Capacity.Cpu().String(),
 				"memory":       node.Status.Capacity.Memory().String(),
 				"storageBytes": nodeStorageBytes,
 				"ip":           nodeIP,
-				// Kamu bisa menambahkan logika untuk mengecek kondisi Ready di sini
-			})
+			}
+
+			if usage, ok := nodeUsage[node.Name]; ok {
+				nodeEntry["cpuUsageMilli"] = usage.cpuMilli
+				nodeEntry["memoryUsageBytes"] = usage.memoryBytes
+				totalCpuUsageMilli += usage.cpuMilli
+				totalMemoryUsageBytes += usage.memoryBytes
+			}
+
+			nodeList = append(nodeList, nodeEntry)
 		}
 
 		storagePercent := 0.0
@@ -150,8 +215,28 @@ func main() {
 			storagePercent = float64(allocatedStorageBytes) / float64(totalStorageBytes) * 100
 		}
 
+		cpuPercent := 0.0
+		memoryPercent := 0.0
+		if metricsAvailable && totalCpuCapacityMilli > 0 {
+			cpuPercent = float64(totalCpuUsageMilli) / float64(totalCpuCapacityMilli) * 100
+		}
+		if metricsAvailable && totalMemoryCapacityBytes > 0 {
+			memoryPercent = float64(totalMemoryUsageBytes) / float64(totalMemoryCapacityBytes) * 100
+		}
+
 		overview := gin.H{
-			"data": nodeList,
+			"data":             nodeList,
+			"metricsAvailable": metricsAvailable,
+			"cpu": gin.H{
+				"usageMilli":    totalCpuUsageMilli,
+				"capacityMilli": totalCpuCapacityMilli,
+				"percent":       cpuPercent,
+			},
+			"memory": gin.H{
+				"usageBytes":    totalMemoryUsageBytes,
+				"capacityBytes": totalMemoryCapacityBytes,
+				"percent":       memoryPercent,
+			},
 			"storage": gin.H{
 				"usedBytes":  allocatedStorageBytes,
 				"totalBytes": totalStorageBytes,

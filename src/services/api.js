@@ -27,54 +27,64 @@ export async function fetchClusterOverview() {
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     const rawData = await res.json();
 
-    let totalCores = 0;
     let totalMemBytes = 0;
-    let totalDiskBytes = 0;
 
-    // PERUBAHAN 1: Gunakan rawData.data (bukan items) dan tambahkan fallback array kosong []
     const realNodes = (rawData.data || []).map((node) => {
-
-      // PERUBAHAN 2: Ambil nilai langsung dari objek node yang sudah difilter oleh backend Go
-      const cpuCap = parseInt(node.cpu || '0', 10);
       const memKi = parseInt(node.memory || '0', 10);
       const memGB = (memKi / (1024 * 1024)).toFixed(1);
-
-      totalCores += cpuCap;
       totalMemBytes += memKi;
-      totalDiskBytes += Number(node.storageBytes) || 0;
+
+      const hasUsage = node.cpuUsageMilli !== undefined && node.memoryUsageBytes !== undefined;
 
       return {
         name: node.name,
         role: node.role || 'Worker',
-        status: 'Ready', // Backend belum mengirim status, kita set default
-        cpu: `${cpuCap} Cores`,
+        status: node.status || 'Unknown',
+        cpu: `${parseInt(node.cpu || '0', 10)} Cores`,
         ram: `${memGB} GB Capacity`,
+        cpuUsage: hasUsage ? `${(node.cpuUsageMilli / 1000).toFixed(2)} Cores` : 'N/A',
+        ramUsage: hasUsage ? `${(node.memoryUsageBytes / (1024 ** 3)).toFixed(2)} GB` : 'N/A',
         uptime: 'Live',
         ip: node.ip || 'N/A',
-        heartbeat: 'Active'
+        heartbeat: node.status === 'Ready' ? 'Active' : 'Lost'
       };
     });
 
     const totalRAM_GB = (totalMemBytes / (1024 * 1024)).toFixed(1);
+
+    // CPU & RAM usage nyata berasal dari metrics-server (metrics.k8s.io) via backend.
+    // Jika metrics-server belum terpasang di cluster, backend melaporkan
+    // metricsAvailable: false — kita tampilkan itu apa adanya, bukan angka rekaan.
+    const metricsAvailable = Boolean(rawData.metricsAvailable);
+    const cpuTotalCores = (Number(rawData.cpu?.capacityMilli) || 0) / 1000;
+    const cpuUsedCores = (Number(rawData.cpu?.usageMilli) || 0) / 1000;
+    const ramTotalGB = (Number(rawData.memory?.capacityBytes) || 0) / (1024 ** 3);
+    const ramUsedGB = (Number(rawData.memory?.usageBytes) || 0) / (1024 ** 3);
+
     const persistentStorageTotal = Number(rawData.storage?.totalBytes) || 0;
     const hasPersistentStorage = persistentStorageTotal > 0;
     const storage = hasPersistentStorage
       ? formatStorage(rawData.storage.usedBytes, persistentStorageTotal)
-      : formatStorage(totalDiskBytes * 0.35, totalDiskBytes);
+      : { used: '0.0', total: '0.0', unit: 'GB' };
     const storagePercent = hasPersistentStorage
       ? Number(rawData.storage.percent || 0).toFixed(1)
-      : (totalDiskBytes > 0 ? '35.0' : '0.0');
+      : '0.0';
 
     return {
-      cpu: { used: (totalCores * 0.45).toFixed(1), total: totalCores, percent: 45.0, unit: 'Cores' },
-      ram: { used: (totalRAM_GB * 0.6).toFixed(1), total: totalRAM_GB, percent: 60.0, unit: 'GB', available: (totalRAM_GB * 0.4).toFixed(1) + ' GB' },
+      cpu: metricsAvailable
+        ? { used: cpuUsedCores.toFixed(2), total: cpuTotalCores.toFixed(1), percent: Number(rawData.cpu.percent || 0).toFixed(1), unit: 'Cores' }
+        : { used: 'N/A', total: cpuTotalCores.toFixed(1), percent: 0, unit: 'Cores', source: 'metrics-server unavailable' },
+      ram: metricsAvailable
+        ? { used: ramUsedGB.toFixed(1), total: ramTotalGB.toFixed(1), percent: Number(rawData.memory.percent || 0).toFixed(1), unit: 'GB', available: (ramTotalGB - ramUsedGB).toFixed(1) + ' GB' }
+        : { used: 'N/A', total: totalRAM_GB, percent: 0, unit: 'GB', available: 'N/A', source: 'metrics-server unavailable' },
       storage: {
         used: storage.used,
         total: storage.total,
         percent: storagePercent,
         unit: storage.unit,
-        source: hasPersistentStorage ? 'Persistent volume allocation' : 'Node storage estimate',
+        source: hasPersistentStorage ? 'Persistent volume allocation' : 'No PersistentVolumes found',
       },
+      metricsAvailable,
       podsCapacity: { active: realNodes.length * 12, max: realNodes.length * 50, running: realNodes.length * 12, crash: 0 },
       nodes: realNodes
     };
@@ -85,6 +95,7 @@ export async function fetchClusterOverview() {
       cpu: { used: 0, total: 0, percent: 0, unit: 'Cores' },
       ram: { used: 0, total: 0, percent: 0, unit: 'GB', available: '0 GB' },
       storage: { used: 0, total: 0, percent: 0, unit: 'TB', source: 'Unavailable' },
+      metricsAvailable: false,
       podsCapacity: { active: 0, max: 0, running: 0, crash: 0 },
       nodes: [{ name: 'Connecting to Cluster...', role: 'N/A', status: 'Offline', cpu: '0', ram: '0', uptime: 'N/A', ip: 'N/A' }]
     };

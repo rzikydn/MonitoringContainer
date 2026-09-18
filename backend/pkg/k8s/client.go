@@ -2,13 +2,16 @@ package k8s
 
 import (
 	"flag"
-	"path/filepath"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"path/filepath"
 )
 
-func InitClient() (*kubernetes.Clientset, error) {
+// InitClient mengembalikan clientset K8s standar beserta *rest.Config-nya,
+// supaya config yang sama bisa dipakai ulang untuk clientset lain (mis. metrics.k8s.io).
+func InitClient() (*kubernetes.Clientset, *rest.Config, error) {
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
 		// Di Windows, ini mengarah ke C:\Users\<User>\.kube\config
@@ -20,13 +23,13 @@ func InitClient() (*kubernetes.Clientset, error) {
 
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return clientset, nil
+	return clientset, config, nil
 }

@@ -36,7 +36,11 @@ export default function ClusterOverviewView({ onNavigate }) {
           <div className="metric-card-top"><span className="metric-card-title">Total CPU Usage</span><Cpu style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.cpu.used} / {clusterData.cpu.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.cpu.unit}</span></div>
           <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.cpu.percent}%`, backgroundColor: '#284C6E' }} /></div>
-          <div className="metric-card-subtext"><strong>{clusterData.cpu.percent}%</strong> capacity utilized</div>
+          <div className="metric-card-subtext">
+            {clusterData.metricsAvailable
+              ? <><strong>{clusterData.cpu.percent}%</strong> capacity utilized</>
+              : <span style={{ color: '#B45309' }}>metrics-server not installed — usage unavailable</span>}
+          </div>
         </div>
 
         {/* RAM */}
@@ -44,7 +48,11 @@ export default function ClusterOverviewView({ onNavigate }) {
           <div className="metric-card-top"><span className="metric-card-title">Aggregated Memory</span><Activity style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.ram.used} / {clusterData.ram.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.ram.unit}</span></div>
           <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.ram.percent}%`, backgroundColor: '#0284C7' }} /></div>
-          <div className="metric-card-subtext"><strong>{clusterData.ram.percent}%</strong> in use ({clusterData.ram.available} available)</div>
+          <div className="metric-card-subtext">
+            {clusterData.metricsAvailable
+              ? <><strong>{clusterData.ram.percent}%</strong> in use ({clusterData.ram.available} available)</>
+              : <span style={{ color: '#B45309' }}>metrics-server not installed — usage unavailable</span>}
+          </div>
         </div>
 
         {/* Storage */}
