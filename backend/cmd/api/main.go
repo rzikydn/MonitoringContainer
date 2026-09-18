@@ -15,6 +15,8 @@ import (
 	"k8s-dashboard-backend/pkg/k8s"
 	"k8s-dashboard-backend/pkg/nodeexporter"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -45,6 +47,17 @@ func nodeExporterPort() int {
 		}
 	}
 	return 9100
+}
+
+// ingressControllerNamespace: namespace tempat ingress controller berjalan, dipakai
+// NetworkPolicy isolasi supaya traffic dari ingress tetap bisa masuk ke namespace
+// tenant. Override lewat env kalau nama namespace ingress controller di cluster
+// berbeda dari default k3s/ingress-nginx ("ingress-nginx" atau "kube-system").
+func ingressControllerNamespace() string {
+	if v := os.Getenv("INGRESS_CONTROLLER_NAMESPACE"); v != "" {
+		return v
+	}
+	return "ingress-nginx"
 }
 
 // firstMilli/firstValue mencari key pertama yang ada di ResourceList (mis. Status.Hard
@@ -268,10 +281,70 @@ func main() {
 			}
 		}
 
+		// Isolasi jaringan: pod di namespace tenant hanya bisa diakses dari pod lain
+		// di namespace yang sama atau dari ingress controller, tidak dari namespace
+		// tenant lain. Mengikuti pola isolate-<namespace> yang sudah dipakai manual
+		// di cluster ini. Hanya membatasi Ingress — egress tetap bebas (DNS, API
+		// eksternal, dll tetap jalan seperti biasa).
+		networkPolicyApplied := true
+		netpol := &networkingv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "isolate-" + body.Name},
+			Spec: networkingv1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{},
+				PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
+				Ingress: []networkingv1.NetworkPolicyIngressRule{
+					{
+						From: []networkingv1.NetworkPolicyPeer{
+							{PodSelector: &metav1.LabelSelector{}},
+							{NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"kubernetes.io/metadata.name": ingressControllerNamespace()},
+							}},
+						},
+					},
+				},
+			},
+		}
+		if _, npErr := clientset.NetworkingV1().NetworkPolicies(body.Name).Create(requestContext, netpol, metav1.CreateOptions{}); npErr != nil {
+			log.Printf("Gagal membuat NetworkPolicy isolasi untuk namespace %s: %v", body.Name, npErr)
+			networkPolicyApplied = false
+		}
+
+		// Isolasi RBAC: ServiceAccount "namespace-admin" khusus namespace ini, diikat ke
+		// ClusterRole bawaan "edit" lewat RoleBinding (bukan ClusterRoleBinding) —
+		// RoleBinding membuat hak aksesnya berlaku HANYA di namespace ini walau
+		// Role-nya sendiri cluster-wide, jadi tidak bisa menyentuh namespace lain
+		// ataupun resource cluster-scoped (Node, Namespace, dll — "edit" tidak
+		// mencakup itu). Belum tersambung ke sistem login dashboard (masih dummy
+		// auth), ini fondasi identitas per-tenant untuk nanti.
+		rbacApplied := true
+		sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "namespace-admin"}}
+		if _, saErr := clientset.CoreV1().ServiceAccounts(body.Name).Create(requestContext, sa, metav1.CreateOptions{}); saErr != nil {
+			log.Printf("Gagal membuat ServiceAccount namespace-admin untuk namespace %s: %v", body.Name, saErr)
+			rbacApplied = false
+		} else {
+			rb := &rbacv1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "namespace-admin-edit"},
+				RoleRef: rbacv1.RoleRef{
+					APIGroup: "rbac.authorization.k8s.io",
+					Kind:     "ClusterRole",
+					Name:     "edit",
+				},
+				Subjects: []rbacv1.Subject{
+					{Kind: "ServiceAccount", Name: "namespace-admin", Namespace: body.Name},
+				},
+			}
+			if _, rbErr := clientset.RbacV1().RoleBindings(body.Name).Create(requestContext, rb, metav1.CreateOptions{}); rbErr != nil {
+				log.Printf("Gagal membuat RoleBinding namespace-admin-edit untuk namespace %s: %v", body.Name, rbErr)
+				rbacApplied = false
+			}
+		}
+
 		c.JSON(http.StatusCreated, gin.H{
-			"name":         created.Name,
-			"status":       string(created.Status.Phase),
-			"quotaApplied": quotaApplied,
+			"name":                 created.Name,
+			"status":               string(created.Status.Phase),
+			"quotaApplied":         quotaApplied,
+			"networkPolicyApplied": networkPolicyApplied,
+			"rbacApplied":          rbacApplied,
 		})
 	})
 
