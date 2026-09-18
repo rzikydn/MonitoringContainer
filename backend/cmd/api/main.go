@@ -221,6 +221,9 @@ func main() {
 		defer cancel()
 
 		rqList, rqErr := clientset.CoreV1().ResourceQuotas(name).List(requestContext, metav1.ListOptions{})
+		if rqErr != nil {
+			log.Printf("Gagal mengambil ResourceQuota di namespace %s: %v", name, rqErr)
+		}
 		hasResourceQuota := rqErr == nil && len(rqList.Items) > 0
 
 		hard := map[string]int64{}
@@ -248,7 +251,10 @@ func main() {
 
 		var actualPodCount int
 		var actualCPURequestMilli, actualMemoryRequestBytes int64
-		if podsList, podsErr := clientset.CoreV1().Pods(name).List(requestContext, metav1.ListOptions{}); podsErr == nil {
+		podsList, podsErr := clientset.CoreV1().Pods(name).List(requestContext, metav1.ListOptions{})
+		if podsErr != nil {
+			log.Printf("Gagal mengambil Pods di namespace %s: %v", name, podsErr)
+		} else {
 			actualPodCount = len(podsList.Items)
 			for _, pod := range podsList.Items {
 				for _, container := range pod.Spec.Containers {
@@ -263,7 +269,10 @@ func main() {
 		}
 
 		var actualStorageBytes int64
-		if pvcList, pvcErr := clientset.CoreV1().PersistentVolumeClaims(name).List(requestContext, metav1.ListOptions{}); pvcErr == nil {
+		pvcList, pvcErr := clientset.CoreV1().PersistentVolumeClaims(name).List(requestContext, metav1.ListOptions{})
+		if pvcErr != nil {
+			log.Printf("Gagal mengambil PersistentVolumeClaims di namespace %s: %v", name, pvcErr)
+		} else {
 			for _, pvc := range pvcList.Items {
 				if q, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok {
 					actualStorageBytes += q.Value()
