@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Cpu, HardDrive, Server, ShieldCheck, CheckCircle2, RefreshCw, ArrowUpRight } from 'lucide-react';
+import { Activity, Cpu, HardDrive, Database, Server, ShieldCheck, CheckCircle2, RefreshCw, ArrowUpRight } from 'lucide-react';
 import { fetchClusterOverview } from '../../../services/api';
 
 export default function ClusterOverviewView({ onNavigate }) {
@@ -55,11 +55,23 @@ export default function ClusterOverviewView({ onNavigate }) {
           </div>
         </div>
 
-        {/* Storage */}
+        {/* Cluster Disk Capacity: total dari ephemeral-storage node, usage dari node-exporter */}
         <div className="metric-stat-card">
-          <div className="metric-card-top"><span className="metric-card-title">Cluster Storage</span><HardDrive style={{ width: '18px', height: '18px' }} /></div>
+          <div className="metric-card-top"><span className="metric-card-title">Cluster Disk Capacity</span><HardDrive style={{ width: '18px', height: '18px' }} /></div>
+          <div className="metric-card-value">{clusterData.disk.used} / {clusterData.disk.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.disk.unit}</span></div>
+          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.disk.percent}%`, backgroundColor: '#10B981' }} /></div>
+          <div className="metric-card-subtext">
+            {clusterData.metricsAvailable
+              ? <><strong>{clusterData.disk.percent}%</strong> {clusterData.disk.source}</>
+              : <span style={{ color: '#B45309' }}>node-exporter unavailable — usage unavailable</span>}
+          </div>
+        </div>
+
+        {/* Persistent Volume Allocation: metrik terpisah dari kapasitas disk node di atas */}
+        <div className="metric-stat-card">
+          <div className="metric-card-top"><span className="metric-card-title">Persistent Volume Allocation</span><Database style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.storage.used} / {clusterData.storage.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.storage.unit}</span></div>
-          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.storage.percent}%`, backgroundColor: '#10B981' }} /></div>
+          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.storage.percent}%`, backgroundColor: '#7C3AED' }} /></div>
           <div className="metric-card-subtext"><strong>{clusterData.storage.percent}%</strong> {clusterData.storage.source}</div>
         </div>
 

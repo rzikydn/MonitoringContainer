@@ -15,10 +15,12 @@ import (
 )
 
 type Snapshot struct {
-	MemTotalBytes     float64
-	MemAvailableBytes float64
-	CPUTotalSeconds   float64 // dijumlahkan lintas semua core, semua mode
-	CPUIdleSeconds    float64 // dijumlahkan lintas semua core, mode idle saja
+	MemTotalBytes        float64
+	MemAvailableBytes    float64
+	CPUTotalSeconds      float64 // dijumlahkan lintas semua core, semua mode
+	CPUIdleSeconds       float64 // dijumlahkan lintas semua core, mode idle saja
+	FilesystemSizeBytes  float64 // node_filesystem_size_bytes untuk mountpoint="/"
+	FilesystemAvailBytes float64 // node_filesystem_avail_bytes untuk mountpoint="/"
 }
 
 func Fetch(nodeIP string, port int, timeout time.Duration) (Snapshot, error) {
@@ -54,6 +56,14 @@ func Fetch(nodeIP string, port int, timeout time.Duration) (Snapshot, error) {
 			if strings.Contains(line, `mode="idle"`) {
 				snap.CPUIdleSeconds += value
 			}
+		case strings.HasPrefix(line, "node_filesystem_size_bytes{"):
+			if extractLabel(line, "mountpoint") == "/" {
+				snap.FilesystemSizeBytes = parseValue(line)
+			}
+		case strings.HasPrefix(line, "node_filesystem_avail_bytes{"):
+			if extractLabel(line, "mountpoint") == "/" {
+				snap.FilesystemAvailBytes = parseValue(line)
+			}
 		}
 	}
 
@@ -71,4 +81,19 @@ func parseValue(line string) float64 {
 	}
 	value, _ := strconv.ParseFloat(line[idx+1:], 64)
 	return value
+}
+
+// extractLabel mengambil nilai label Prometheus sederhana, mis. extractLabel(`foo{mountpoint="/"} 1`, "mountpoint") -> "/".
+func extractLabel(line, key string) string {
+	marker := key + `="`
+	idx := strings.Index(line, marker)
+	if idx == -1 {
+		return ""
+	}
+	start := idx + len(marker)
+	end := strings.Index(line[start:], `"`)
+	if end == -1 {
+		return ""
+	}
+	return line[start : start+end]
 }

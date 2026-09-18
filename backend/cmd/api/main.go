@@ -154,6 +154,8 @@ func main() {
 		var totalMemoryCapacityBytes int64
 		var totalCpuUsageMilli int64
 		var totalMemoryUsageBytes int64
+		var totalEphemeralStorageBytes int64
+		var totalDiskUsedBytes int64
 		for _, node := range nodes.Items {
 			nodeIP := "N/A"
 			nodeRole := "Worker"
@@ -190,6 +192,7 @@ func main() {
 			memoryCapacityBytes := node.Status.Capacity.Memory().Value()
 			totalCpuCapacityMilli += cpuCapacityMilli
 			totalMemoryCapacityBytes += memoryCapacityBytes
+			totalEphemeralStorageBytes += nodeStorageBytes
 
 			nodeEntry := map[string]interface{}{
 				"name":         node.Name,
@@ -211,6 +214,12 @@ func main() {
 					memoryUsageBytes := int64(snap.MemTotalBytes - snap.MemAvailableBytes)
 					nodeEntry["memoryUsageBytes"] = memoryUsageBytes
 					totalMemoryUsageBytes += memoryUsageBytes
+
+					if snap.FilesystemSizeBytes > 0 {
+						diskUsageBytes := int64(snap.FilesystemSizeBytes - snap.FilesystemAvailBytes)
+						nodeEntry["diskUsageBytes"] = diskUsageBytes
+						totalDiskUsedBytes += diskUsageBytes
+					}
 
 					cpuSampleCache.Lock()
 					prev, hasPrev := cpuSampleCache.samples[node.Name]
@@ -247,11 +256,15 @@ func main() {
 
 		cpuPercent := 0.0
 		memoryPercent := 0.0
+		diskPercent := 0.0
 		if metricsAvailable && totalCpuCapacityMilli > 0 {
 			cpuPercent = float64(totalCpuUsageMilli) / float64(totalCpuCapacityMilli) * 100
 		}
 		if metricsAvailable && totalMemoryCapacityBytes > 0 {
 			memoryPercent = float64(totalMemoryUsageBytes) / float64(totalMemoryCapacityBytes) * 100
+		}
+		if metricsAvailable && totalEphemeralStorageBytes > 0 {
+			diskPercent = float64(totalDiskUsedBytes) / float64(totalEphemeralStorageBytes) * 100
 		}
 
 		overview := gin.H{
@@ -267,6 +280,15 @@ func main() {
 				"capacityBytes": totalMemoryCapacityBytes,
 				"percent":       memoryPercent,
 			},
+			// disk: kapasitas total diambil dari ephemeral-storage yang dilaporkan
+			// Kubernetes per node; usage diambil dari node-exporter (root filesystem host),
+			// karena kubelet tidak melaporkan usage ephemeral-storage lewat jalur ini.
+			"disk": gin.H{
+				"usageBytes":    totalDiskUsedBytes,
+				"capacityBytes": totalEphemeralStorageBytes,
+				"percent":       diskPercent,
+			},
+			// storage: alokasi PersistentVolume (PV), terpisah dari kapasitas disk node di atas.
 			"storage": gin.H{
 				"usedBytes":  allocatedStorageBytes,
 				"totalBytes": totalStorageBytes,

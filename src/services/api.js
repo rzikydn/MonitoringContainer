@@ -61,6 +61,12 @@ export async function fetchClusterOverview() {
     const ramTotalGB = (Number(rawData.memory?.capacityBytes) || 0) / (1024 ** 3);
     const ramUsedGB = (Number(rawData.memory?.usageBytes) || 0) / (1024 ** 3);
 
+    // Disk: kapasitas total dari ephemeral-storage node (Kubernetes API),
+    // usage real dari node-exporter (root filesystem host).
+    const diskTotalBytes = Number(rawData.disk?.capacityBytes) || 0;
+    const diskUsage = formatStorage(rawData.disk?.usageBytes, diskTotalBytes);
+
+    // Persistent Volume Allocation: terpisah dari kapasitas disk node di atas.
     const persistentStorageTotal = Number(rawData.storage?.totalBytes) || 0;
     const hasPersistentStorage = persistentStorageTotal > 0;
     const storage = hasPersistentStorage
@@ -77,6 +83,9 @@ export async function fetchClusterOverview() {
       ram: metricsAvailable
         ? { used: ramUsedGB.toFixed(1), total: ramTotalGB.toFixed(1), percent: Number(rawData.memory.percent || 0).toFixed(1), unit: 'GB', available: (ramTotalGB - ramUsedGB).toFixed(1) + ' GB' }
         : { used: 'N/A', total: totalRAM_GB, percent: 0, unit: 'GB', available: 'N/A', source: 'metrics-server unavailable' },
+      disk: metricsAvailable && diskTotalBytes > 0
+        ? { used: diskUsage.used, total: diskUsage.total, percent: Number(rawData.disk.percent || 0).toFixed(1), unit: diskUsage.unit, source: 'Node ephemeral-storage (host disk)' }
+        : { used: 'N/A', total: diskUsage.total, percent: 0, unit: diskUsage.unit, source: 'node-exporter unavailable' },
       storage: {
         used: storage.used,
         total: storage.total,
@@ -94,6 +103,7 @@ export async function fetchClusterOverview() {
     return {
       cpu: { used: 0, total: 0, percent: 0, unit: 'Cores' },
       ram: { used: 0, total: 0, percent: 0, unit: 'GB', available: '0 GB' },
+      disk: { used: 0, total: 0, percent: 0, unit: 'GB', source: 'Unavailable' },
       storage: { used: 0, total: 0, percent: 0, unit: 'TB', source: 'Unavailable' },
       metricsAvailable: false,
       podsCapacity: { active: 0, max: 0, running: 0, crash: 0 },
