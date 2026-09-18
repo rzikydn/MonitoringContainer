@@ -117,6 +117,27 @@ export async function fetchClusterOverview() {
   }
 }
 
+// Fitur 2: Event failover nyata (NodeNotReady, eviction, rescheduling pod)
+export async function fetchClusterEvents() {
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/events`);
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+    const rawData = await res.json();
+    return (rawData.data || []).map((ev, idx) => ({
+      id: idx,
+      type: ev.type || 'Normal',
+      reason: ev.reason || '',
+      message: ev.message || '',
+      object: ev.object || '',
+      node: ev.node || '',
+      time: ev.time || null,
+    }));
+  } catch (err) {
+    console.error('Gagal mengambil events dari Kubernetes:', err.message);
+    return [];
+  }
+}
+
 
 // 2. Fitur 5 & 6: Deployments & Live Pods Metrics
 export async function fetchWorkloadsPods(namespace = 'all') {

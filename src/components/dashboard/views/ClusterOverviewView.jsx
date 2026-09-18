@@ -1,17 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Cpu, HardDrive, Database, Server, ShieldCheck, CheckCircle2, RefreshCw, ArrowUpRight } from 'lucide-react';
-import { fetchClusterOverview } from '../../../services/api';
+import { Activity, Cpu, HardDrive, Database, Server, ShieldCheck, CheckCircle2, RefreshCw, ArrowUpRight, History, AlertTriangle, ArrowRightLeft } from 'lucide-react';
+import { fetchClusterOverview, fetchClusterEvents } from '../../../services/api';
+
+const EVENT_REASON_STYLE = {
+  NodeNotReady: { badge: 'badge-danger', icon: AlertTriangle, label: 'Node Down' },
+  NodeReady: { badge: 'badge-success', icon: CheckCircle2, label: 'Node Recovered' },
+  NodeNotSchedulable: { badge: 'badge-warning', icon: AlertTriangle, label: 'Node Cordoned' },
+  NodeSchedulable: { badge: 'badge-success', icon: CheckCircle2, label: 'Node Uncordoned' },
+  Killing: { badge: 'badge-warning', icon: AlertTriangle, label: 'Pod Terminated' },
+  Preempted: { badge: 'badge-warning', icon: AlertTriangle, label: 'Pod Preempted' },
+  Evicted: { badge: 'badge-danger', icon: AlertTriangle, label: 'Pod Evicted' },
+  TaintManagerEviction: { badge: 'badge-danger', icon: AlertTriangle, label: 'Evicted (Node Taint)' },
+  FailedScheduling: { badge: 'badge-danger', icon: AlertTriangle, label: 'Scheduling Failed' },
+  Scheduled: { badge: 'badge-success', icon: ArrowRightLeft, label: 'Rescheduled' },
+};
+
+function formatRelativeTime(isoTime) {
+  if (!isoTime) return 'Unknown time';
+  const then = new Date(isoTime).getTime();
+  if (Number.isNaN(then)) return 'Unknown time';
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+  if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+  if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
+  return `${Math.floor(diffSeconds / 86400)}d ago`;
+}
 
 export default function ClusterOverviewView({ onNavigate }) {
   const [clusterData, setClusterData] = useState(null);
+  const [events, setEvents] = useState([]);
 
   useEffect(() => {
-    fetchClusterOverview().then((data) => setClusterData(data));
+    const refresh = () => {
+      fetchClusterOverview().then((data) => setClusterData(data));
+      fetchClusterEvents().then((data) => setEvents(data));
+    };
+
+    refresh();
 
     const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 menit
-    const intervalId = setInterval(() => {
-      fetchClusterOverview().then((data) => setClusterData(data));
-    }, REFRESH_INTERVAL_MS);
+    const intervalId = setInterval(refresh, REFRESH_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
   }, []);
@@ -128,6 +156,37 @@ export default function ClusterOverviewView({ onNavigate }) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Fitur 2: Failover & Rescheduling Events (data asli dari K8s Events API) */}
+      <div className="node-box">
+        <div className="node-box-header">
+          <div><h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Recent Failover & Scheduling Events</h3></div>
+          <span className="k8s-badge badge-info"><History style={{ width: '13px', height: '13px' }} /> Live from Kubernetes Events</span>
+        </div>
+        {events.length === 0 ? (
+          <div style={{ padding: '20px', color: '#64748B', fontSize: '0.85rem' }}>No recent failover or scheduling events.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px' }}>
+            {events.map((ev) => {
+              const style = EVENT_REASON_STYLE[ev.reason] || { badge: 'badge-info', icon: History, label: ev.reason || 'Event' };
+              const Icon = style.icon;
+              return (
+                <div key={ev.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+                  <span className={`k8s-badge ${style.badge}`} style={{ flexShrink: 0 }}>
+                    <Icon style={{ width: '12px', height: '12px' }} /> {style.label}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.85rem', color: '#1E293B' }}>{ev.message}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px', fontFamily: 'monospace' }}>
+                      {ev.object}{ev.node ? ` · node: ${ev.node}` : ''} · {formatRelativeTime(ev.time)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
