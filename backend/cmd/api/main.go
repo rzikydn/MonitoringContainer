@@ -159,6 +159,74 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"data": podList})
 	})
 
+	// Restart pod: sumber data untuk Fitur 5 (Deployment & Pod Lifecycle).
+	// Tidak ada API "restart" native di Kubernetes — cara standarnya adalah
+	// menghapus pod; kalau pod dikelola controller (Deployment/ReplicaSet/
+	// StatefulSet/DaemonSet), controller otomatis membuat penggantinya (= restart).
+	// Kalau pod berdiri sendiri (bukan dikelola controller), pod akan hilang
+	// permanen, bukan dibuat ulang.
+	r.DELETE("/api/workloads/pods", func(c *gin.Context) {
+		namespace := c.Query("namespace")
+		name := c.Query("name")
+		if namespace == "" || name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "namespace dan name wajib diisi"})
+			return
+		}
+
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		if err := clientset.CoreV1().Pods(namespace).Delete(requestContext, name, metav1.DeleteOptions{}); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "pod deleted", "name": name, "namespace": namespace})
+	})
+
+	// Endpoint Deployments: sumber "jumlah replica" untuk Fitur 5 (Deployment & Pod Lifecycle).
+	r.GET("/api/v1/deployments", func(c *gin.Context) {
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		namespace := c.Query("namespace")
+		if namespace == "all" || namespace == "All" {
+			namespace = ""
+		}
+
+		deployments, err := clientset.AppsV1().Deployments(namespace).List(requestContext, metav1.ListOptions{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		deployList := make([]map[string]interface{}, 0, len(deployments.Items))
+		for _, d := range deployments.Items {
+			desired := int32(1)
+			if d.Spec.Replicas != nil {
+				desired = *d.Spec.Replicas
+			}
+
+			image := ""
+			if len(d.Spec.Template.Spec.Containers) > 0 {
+				image = d.Spec.Template.Spec.Containers[0].Image
+			}
+
+			deployList = append(deployList, map[string]interface{}{
+				"name":              d.Name,
+				"namespace":         d.Namespace,
+				"desiredReplicas":   desired,
+				"readyReplicas":     d.Status.ReadyReplicas,
+				"availableReplicas": d.Status.AvailableReplicas,
+				"updatedReplicas":   d.Status.UpdatedReplicas,
+				"image":             image,
+				"createdAt":         d.CreationTimestamp.Time,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": deployList})
+	})
+
 	// Endpoint Namespaces: sumber data untuk Fitur 3 (Project/Namespace Grouping).
 	// "project baru = namespace baru" — list/create/delete di sini langsung
 	// memanggil Kubernetes API, bukan state lokal di frontend.

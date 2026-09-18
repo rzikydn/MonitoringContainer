@@ -181,6 +181,42 @@ export async function fetchWorkloadsPods(namespace = 'all') {
   }
 }
 
+// Fitur 5: Restart pod = delete pod (K8s tidak punya API "restart" native).
+// Kalau pod dikelola controller (Deployment/ReplicaSet/dst), penggantinya
+// otomatis dibuat ulang. Kalau pod berdiri sendiri, pod hilang permanen.
+export async function restartPod(namespace, name) {
+  const res = await fetch(`${BASE_URL}/api/workloads/pods?namespace=${encodeURIComponent(namespace)}&name=${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Gagal restart pod');
+  }
+  return await res.json();
+}
+
+// Fitur 5: Deployment & Pod Lifecycle — jumlah replica real per Deployment.
+export async function fetchDeployments(namespace = 'all') {
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/deployments?namespace=${encodeURIComponent(namespace)}`);
+    if (!res.ok) throw new Error('API Offline');
+    const rawData = await res.json();
+    return (rawData.data || []).map((d) => ({
+      name: d.name,
+      namespace: d.namespace,
+      desired: Number(d.desiredReplicas) || 0,
+      ready: Number(d.readyReplicas) || 0,
+      available: Number(d.availableReplicas) || 0,
+      updated: Number(d.updatedReplicas) || 0,
+      image: d.image || 'N/A',
+      age: formatAge(d.createdAt),
+    }));
+  } catch (err) {
+    console.error('Gagal mengambil deployments dari Kubernetes:', err.message);
+    return [];
+  }
+}
+
 // Fitur 3: Namespace = project. List/create/delete langsung ke Kubernetes API.
 export async function fetchNamespaces() {
   try {

@@ -11,16 +11,29 @@ import {
   Layers,
   ArrowUpRight,
 } from 'lucide-react';
-import { fetchWorkloadsPods, fetchNamespaces } from '../../../services/api';
+import { fetchWorkloadsPods, fetchNamespaces, fetchDeployments, restartPod } from '../../../services/api';
+
+const POD_STATUS_STYLE = {
+  Running: 'badge-success',
+  CrashLoopBackOff: 'badge-danger',
+  Failed: 'badge-danger',
+  Pending: 'badge-warning',
+  Succeeded: 'badge-info',
+};
 
 export default function WorkloadsPodsView({ onNavigateToLogs }) {
   const [search, setSearch] = useState('');
   const [filterNamespace, setFilterNamespace] = useState('All');
   const [pods, setPods] = useState([]);
+  const [deployments, setDeployments] = useState([]);
   const [namespaces, setNamespaces] = useState([]);
+  const [restartingPod, setRestartingPod] = useState(null);
+
+  const loadPods = () => fetchWorkloadsPods().then((data) => setPods(data));
 
   useEffect(() => {
-    fetchWorkloadsPods().then((data) => setPods(data));
+    loadPods();
+    fetchDeployments().then((data) => setDeployments(data));
     fetchNamespaces().then((data) => setNamespaces(data));
   }, []);
 
@@ -33,16 +46,25 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
     return matchSearch && matchNamespace;
   });
 
+  const filteredDeployments = deployments.filter((d) =>
+    filterNamespace === 'All' || d.namespace === filterNamespace
+  );
+
   const crashCount = pods.filter((p) => p.status === 'CrashLoopBackOff').length;
 
-  const handleRestart = (podName) => {
-    setPods((prev) =>
-      prev.map((p) =>
-        p.name === podName
-          ? { ...p, status: 'Running', restarts: p.restarts + 1 }
-          : p
-      )
-    );
+  const handleRestart = async (pod) => {
+    if (!window.confirm(`Restart pod "${pod.name}"? Kalau pod ini dikelola Deployment/ReplicaSet, penggantinya otomatis dibuat. Kalau pod berdiri sendiri, pod akan hilang permanen.`)) {
+      return;
+    }
+    setRestartingPod(pod.name);
+    try {
+      await restartPod(pod.namespace, pod.name);
+      await loadPods();
+    } catch (err) {
+      alert(`Gagal restart pod: ${err.message}`);
+    } finally {
+      setRestartingPod(null);
+    }
   };
 
   return (
@@ -113,6 +135,50 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
         </select>
       </div>
 
+      {/* Deployments Table — jumlah replica real (Fitur 5) */}
+      <div className="node-box">
+        <div className="node-box-header">
+          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>Deployments</h3>
+          <span className="k8s-badge badge-info">{filteredDeployments.length} Deployments</span>
+        </div>
+        <div className="table-responsive-wrapper">
+          <table className="k8s-table">
+            <thead>
+              <tr>
+                <th>Deployment Name</th>
+                <th>Namespace</th>
+                <th>Replicas (Ready/Desired)</th>
+                <th>Image</th>
+                <th>Age</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredDeployments.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ color: '#64748B', textAlign: 'center', padding: '16px' }}>
+                    No deployments found.
+                  </td>
+                </tr>
+              ) : (
+                filteredDeployments.map((d) => (
+                  <tr key={`${d.namespace}/${d.name}`}>
+                    <td style={{ fontWeight: 600, color: '#0F172A' }}>{d.name}</td>
+                    <td><span className="k8s-badge badge-muted">{d.namespace}</span></td>
+                    <td>
+                      <span style={{ fontWeight: 600, color: d.ready < d.desired ? '#B91C1C' : '#15803D' }}>
+                        {d.ready}/{d.desired}
+                      </span>
+                    </td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748B' }}>{d.image}</td>
+                    <td style={{ color: '#64748B', fontSize: '0.8rem' }}>{d.age}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Pods Table (Fitur 5 & 6) */}
       <div className="table-responsive-wrapper">
         <table className="k8s-table">
@@ -145,17 +211,14 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
                   {pod.node}
                 </td>
                 <td>
-                  {pod.status === 'Running' ? (
-                    <span className="k8s-badge badge-success">
+                  <span className={`k8s-badge ${POD_STATUS_STYLE[pod.status] || 'badge-muted'}`}>
+                    {pod.status === 'Running' ? (
                       <CheckCircle2 style={{ width: '12px', height: '12px' }} />
-                      Running
-                    </span>
-                  ) : (
-                    <span className="k8s-badge badge-danger">
+                    ) : (
                       <AlertTriangle style={{ width: '12px', height: '12px' }} />
-                      CrashLoopBackOff
-                    </span>
-                  )}
+                    )}
+                    {pod.status}
+                  </span>
                 </td>
                 <td>
                   <span
@@ -185,12 +248,13 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
                 <td style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                     <button
-                      onClick={() => handleRestart(pod.name)}
+                      onClick={() => handleRestart(pod)}
                       className="btn-dash btn-dash-secondary btn-dash-sm"
-                      title="Quick Restart Pod"
+                      title="Restart Pod (delete → dibuat ulang otomatis kalau dikelola controller)"
+                      disabled={restartingPod === pod.name}
                     >
                       <RotateCw style={{ width: '12px', height: '12px' }} />
-                      Restart
+                      {restartingPod === pod.name ? 'Restarting...' : 'Restart'}
                     </button>
                     <button
                       onClick={() => onNavigateToLogs && onNavigateToLogs(pod.name)}
