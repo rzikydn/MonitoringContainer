@@ -9,6 +9,8 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
+import { deployApplication } from '../../../services/api';
+
 
 export default function DeployAppView({ onDeployed }) {
   const [appName, setAppName] = useState('');
@@ -38,16 +40,14 @@ export default function DeployAppView({ onDeployed }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!appName || !image) {
-      alert('Please fill in Application Name and Container Image URL');
-      return;
-    }
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setDeployedSuccess(true);
-      if (onDeployed) onDeployed();
-    }, 1200);
+
+    deployApplication({ appName, image, namespace, port, replicas, cpuLimit, ramLimit, envVars })
+      .then((res) => {
+        setIsSubmitting(false);
+        setDeployedSuccess(true);
+        if (onDeployed) onDeployed();
+      });
   };
 
   return (

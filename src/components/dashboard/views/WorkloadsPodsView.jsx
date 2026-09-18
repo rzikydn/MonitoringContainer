@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Boxes,
   RotateCw,
@@ -11,74 +11,16 @@ import {
   Layers,
   ArrowUpRight,
 } from 'lucide-react';
-
-const INITIAL_PODS = [
-  {
-    name: 'asset-api-deployment-78f94d97f-m1a2b',
-    namespace: 'asset-mgmt',
-    node: 'node-vm-141',
-    status: 'Running',
-    restarts: 0,
-    cpu: '180m',
-    memory: '245 Mi',
-    uptime: '12d 4h',
-  },
-  {
-    name: 'asset-worker-db-sync-547ccb8c9-j4k5l',
-    namespace: 'asset-mgmt',
-    node: 'node-vm-141',
-    status: 'Running',
-    restarts: 1,
-    cpu: '95m',
-    memory: '180 Mi',
-    uptime: '5d 8h',
-  },
-  {
-    name: 'spending-web-frontend-6b45d9ff9-x8y9z',
-    namespace: 'spending-mgmt',
-    node: 'node-vm-142',
-    status: 'Running',
-    restarts: 0,
-    cpu: '120m',
-    memory: '190 Mi',
-    uptime: '14d 2h',
-  },
-  {
-    name: 'spending-cron-analyzer-849c7f667-q1w2e',
-    namespace: 'spending-mgmt',
-    node: 'node-vm-142',
-    status: 'CrashLoopBackOff',
-    restarts: 4,
-    cpu: '15m',
-    memory: '82 Mi',
-    uptime: '10m',
-  },
-  {
-    name: 'redis-cache-master-0',
-    namespace: 'core-services',
-    node: 'node-vm-141',
-    status: 'Running',
-    restarts: 0,
-    cpu: '65m',
-    memory: '310 Mi',
-    uptime: '45d 14h',
-  },
-  {
-    name: 'postgres-db-cluster-0',
-    namespace: 'core-services',
-    node: 'node-vm-142',
-    status: 'Running',
-    restarts: 0,
-    cpu: '410m',
-    memory: '1.2 Gi',
-    uptime: '45d 14h',
-  },
-];
+import { fetchWorkloadsPods } from '../../../services/api';
 
 export default function WorkloadsPodsView({ onNavigateToLogs }) {
   const [search, setSearch] = useState('');
   const [filterNamespace, setFilterNamespace] = useState('All');
-  const [pods, setPods] = useState(INITIAL_PODS);
+  const [pods, setPods] = useState([]);
+
+  useEffect(() => {
+    fetchWorkloadsPods().then((data) => setPods(data));
+  }, []);
 
   const filteredPods = pods.filter((p) => {
     const matchSearch =

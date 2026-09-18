@@ -3,6 +3,7 @@ import { AtSign, Check } from 'lucide-react';
 import serverIllustration from '../assets/server1.svg';
 import SmoothInput from './SmoothInput';
 import AnimatedLock from './AnimatedLock';
+import { loginUser } from '../services/api';
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -32,23 +33,17 @@ export default function LoginPage({ onLogin }) {
 
     // Verifikasi autentikasi kredensial superuser / superuser123
     setTimeout(() => {
-      if (u === 'superuser' && p === 'superuser123') {
-        setIsLoading(false);
-        if (onLogin) {
-          onLogin(
-            {
-              username: 'superuser',
-              name: 'Super User',
-              role: 'System Administrator',
-              avatar: 'SU',
-            },
-            rememberMe
-          );
-        }
-      } else {
-        setIsLoading(false);
-        triggerShake();
-      }
+      setIsLoading(true);
+      loginUser(u, p)
+        .then((res) => {
+          setIsLoading(false);
+          if (onLogin) onLogin(res.user, rememberMe);
+        })
+        .catch((err) => {
+          setIsLoading(false);
+          triggerShake();
+          alert(err.message);
+        });
     }, 450);
   };
 
