@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -124,6 +126,168 @@ func ingressMetricsServiceName() string {
 	return "ingress-nginx-controller-metrics"
 }
 
+// Fitur 10: Alert Notifications — node down, pod sering restart, resource >85%.
+// Dievaluasi berkala oleh goroutine background (bukan cuma saat frontend buka
+// halaman Alerts), supaya webhook benar-benar terkirim proaktif saat kejadian,
+// bukan cuma saat ada yang kebetulan melihat dashboard.
+type alertItem struct {
+	ID       string    `json:"id"`
+	Severity string    `json:"severity"`
+	Title    string    `json:"title"`
+	Message  string    `json:"message"`
+	Time     time.Time `json:"time"`
+}
+
+var alertsState struct {
+	sync.RWMutex
+	items  []alertItem
+	active map[string]bool // key alert yang sedang aktif, dipakai untuk dedup notifikasi
+}
+
+const (
+	podRestartThreshold      = 5
+	resourceThresholdPercent = 85.0
+)
+
+// alertWebhookURL: endpoint webhook (Slack/Discord/Teams/generic — apapun yang
+// terima POST JSON {"text": "..."}). Kosong secara default; tanpa ini alert
+// tetap dihitung & ditampilkan di dashboard, cuma tidak dikirim keluar.
+func alertWebhookURL() string {
+	return os.Getenv("ALERT_WEBHOOK_URL")
+}
+
+func sendAlertWebhook(item alertItem) {
+	url := alertWebhookURL()
+	if url == "" {
+		return
+	}
+
+	payload, err := json.Marshal(gin.H{
+		"text": fmt.Sprintf("[%s] %s\n%s", strings.ToUpper(item.Severity), item.Title, item.Message),
+	})
+	if err != nil {
+		return
+	}
+
+	client := http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Post(url, "application/json", bytes.NewReader(payload))
+	if err != nil {
+		log.Printf("Gagal mengirim alert webhook: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+}
+
+func evaluateAlerts(requestContext context.Context, clientset *kubernetes.Clientset) []alertItem {
+	var items []alertItem
+	now := time.Now()
+
+	if nodes, err := clientset.CoreV1().Nodes().List(requestContext, metav1.ListOptions{}); err == nil {
+		for _, node := range nodes.Items {
+			ready := false
+			for _, cond := range node.Status.Conditions {
+				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+					ready = true
+				}
+			}
+			if !ready {
+				items = append(items, alertItem{
+					ID:       "node-down-" + node.Name,
+					Severity: "danger",
+					Title:    "Node Down",
+					Message:  fmt.Sprintf("Node %s berstatus NotReady", node.Name),
+					Time:     now,
+				})
+			}
+		}
+	}
+
+	if pods, err := clientset.CoreV1().Pods("").List(requestContext, metav1.ListOptions{}); err == nil {
+		for _, pod := range pods.Items {
+			var restarts int32
+			crashLoop := false
+			for _, cs := range pod.Status.ContainerStatuses {
+				restarts += cs.RestartCount
+				if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
+					crashLoop = true
+				}
+			}
+			if crashLoop || restarts >= podRestartThreshold {
+				suffix := ""
+				if crashLoop {
+					suffix = " (CrashLoopBackOff)"
+				}
+				items = append(items, alertItem{
+					ID:       "pod-restart-" + pod.Namespace + "/" + pod.Name,
+					Severity: "warning",
+					Title:    "Pod Sering Restart",
+					Message:  fmt.Sprintf("%s/%s sudah restart %dx%s", pod.Namespace, pod.Name, restarts, suffix),
+					Time:     now,
+				})
+			}
+		}
+	}
+
+	clusterOverviewCache.RLock()
+	overview := clusterOverviewCache.data
+	clusterOverviewCache.RUnlock()
+	if overview != nil {
+		metricsAvailable, _ := overview["metricsAvailable"].(bool)
+		checkThreshold := func(label string, section interface{}) {
+			m, ok := section.(gin.H)
+			if !ok {
+				return
+			}
+			percent, _ := m["percent"].(float64)
+			if metricsAvailable && percent > resourceThresholdPercent {
+				items = append(items, alertItem{
+					ID:       "resource-" + label,
+					Severity: "warning",
+					Title:    fmt.Sprintf("%s Threshold > %.0f%%", label, resourceThresholdPercent),
+					Message:  fmt.Sprintf("Cluster %s usage %.1f%%", label, percent),
+					Time:     now,
+				})
+			}
+		}
+		checkThreshold("CPU", overview["cpu"])
+		checkThreshold("Memory", overview["memory"])
+		checkThreshold("Disk", overview["disk"])
+	}
+
+	return items
+}
+
+func startAlertLoop(clientset *kubernetes.Clientset) {
+	alertsState.Lock()
+	alertsState.active = map[string]bool{}
+	alertsState.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			requestContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			items := evaluateAlerts(requestContext, clientset)
+			cancel()
+
+			newActive := map[string]bool{}
+			alertsState.Lock()
+			for _, item := range items {
+				newActive[item.ID] = true
+				if !alertsState.active[item.ID] {
+					sendAlertWebhook(item)
+				}
+			}
+			alertsState.items = items
+			alertsState.active = newActive
+			alertsState.Unlock()
+
+			<-ticker.C
+		}
+	}()
+}
+
 // nginxSampleCache: sampel counter terakhir dari ingress-nginx-controller,
 // dipakai untuk menghitung delta (request rate, error rate) antar request —
 // sama seperti pola cpuSampleCache. Fitur 8 (Traffic In/Out & Health Check).
@@ -183,6 +347,7 @@ func main() {
 
 	cpuSampleCache.samples = make(map[string]cpuSample)
 	containerCPUSampleCache.samples = make(map[string]containerCPUSample)
+	startAlertLoop(clientset)
 
 	// 2. Setup Gin Router
 	r := gin.Default()
@@ -357,6 +522,16 @@ func main() {
 	})
 
 	// Endpoint Deployments: sumber "jumlah replica" untuk Fitur 5 (Deployment & Pod Lifecycle).
+	// Endpoint Alerts: sumber data untuk Fitur 10 (Alert Notifications).
+	// Alert dihitung terus-menerus oleh startAlertLoop() di background, endpoint
+	// ini cuma membaca hasil terakhirnya.
+	r.GET("/api/v1/alerts", func(c *gin.Context) {
+		alertsState.RLock()
+		items := alertsState.items
+		alertsState.RUnlock()
+		c.JSON(http.StatusOK, gin.H{"data": items, "webhookConfigured": alertWebhookURL() != ""})
+	})
+
 	r.GET("/api/v1/deployments", func(c *gin.Context) {
 		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 		defer cancel()

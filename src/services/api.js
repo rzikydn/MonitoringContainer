@@ -400,16 +400,27 @@ export function buildLogStreamUrl(namespace, pod, container, tailLines = 200) {
 }
 
 // 6. Fitur 10: Alert Notifications List
+// Fitur 10: Alert Notifications — node down, pod sering restart, resource >85%.
+// Dihitung terus-menerus di backend (bukan cuma saat halaman ini dibuka), dan
+// dikirim ke webhook (kalau ALERT_WEBHOOK_URL sudah di-set di backend).
 export async function fetchAlerts() {
   try {
-    const res = await fetch(`${BASE_URL}/alerts`);
+    const res = await fetch(`${BASE_URL}/api/v1/alerts`);
     if (!res.ok) throw new Error('API Offline');
-    return await res.json();
-  } catch {
-    return [
-      { id: 1, severity: 'danger', title: 'Pod CrashLoopBackOff', message: 'spending-cron-analyzer restarts exceeded threshold (14x)', time: '5m ago' },
-      { id: 2, severity: 'warning', title: 'CPU Threshold > 85%', message: 'node-vm-141 CPU spike detected (86.4%)', time: '18m ago' },
-    ];
+    const rawData = await res.json();
+    return {
+      alerts: (rawData.data || []).map((a) => ({
+        id: a.id,
+        severity: a.severity === 'danger' ? 'critical' : a.severity,
+        title: a.title,
+        message: a.message,
+        time: a.time,
+      })),
+      webhookConfigured: Boolean(rawData.webhookConfigured),
+    };
+  } catch (err) {
+    console.error('Gagal mengambil alerts dari Kubernetes:', err.message);
+    return { alerts: [], webhookConfigured: false };
   }
 }
 
