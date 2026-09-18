@@ -728,6 +728,86 @@ func main() {
 		})
 	})
 
+	// Scale Deployment: sumber aksi untuk App Services (Start/Stop/slider scaling).
+	// Start = scale ke replicas>0, Stop = scale ke 0 — keduanya lewat endpoint yang sama.
+	r.PATCH("/api/v1/deployments/:namespace/:name/scale", func(c *gin.Context) {
+		namespace := c.Param("namespace")
+		name := c.Param("name")
+
+		var body struct {
+			Replicas int32 `json:"replicas"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil || body.Replicas < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Jumlah replicas tidak valid"})
+			return
+		}
+
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		deployment, err := clientset.AppsV1().Deployments(namespace).Get(requestContext, name, metav1.GetOptions{})
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		deployment.Spec.Replicas = &body.Replicas
+		if _, err := clientset.AppsV1().Deployments(namespace).Update(requestContext, deployment, metav1.UpdateOptions{}); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Deployment di-scale", "replicas": body.Replicas})
+	})
+
+	// Restart Deployment: setara `kubectl rollout restart` — patch annotation
+	// template pod supaya controller melakukan rolling restart semua pod-nya.
+	r.POST("/api/v1/deployments/:namespace/:name/restart", func(c *gin.Context) {
+		namespace := c.Param("namespace")
+		name := c.Param("name")
+
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+		defer cancel()
+
+		deployment, err := clientset.AppsV1().Deployments(namespace).Get(requestContext, name, metav1.GetOptions{})
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		if deployment.Spec.Template.ObjectMeta.Annotations == nil {
+			deployment.Spec.Template.ObjectMeta.Annotations = map[string]string{}
+		}
+		deployment.Spec.Template.ObjectMeta.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+
+		if _, err := clientset.AppsV1().Deployments(namespace).Update(requestContext, deployment, metav1.UpdateOptions{}); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Rolling restart dipicu"})
+	})
+
+	// Kirim test alert: dipakai tombol "Test Webhook" — membuktikan webhook/Telegram
+	// yang dikonfigurasi (Fitur 10) benar-benar terkirim, bukan cuma simulasi UI.
+	r.POST("/api/v1/alerts/test", func(c *gin.Context) {
+		configured := alertWebhookURL() != "" || (telegramBotToken() != "" && telegramChatID() != "")
+		if !configured {
+			c.JSON(http.StatusOK, gin.H{"sent": false, "message": "Tidak ada webhook/Telegram yang dikonfigurasi (ALERT_WEBHOOK_URL / TELEGRAM_BOT_TOKEN+TELEGRAM_CHAT_ID)"})
+			return
+		}
+
+		sendAlertWebhook(alertItem{
+			ID:       "test-alert",
+			Severity: "warning",
+			Title:    "Test Alert",
+			Message:  "Ini adalah test notifikasi dari Container Monitoring Dashboard.",
+			Time:     time.Now(),
+		})
+
+		c.JSON(http.StatusOK, gin.H{"sent": true})
+	})
+
 	// Endpoint Live Container Metrics: sumber data untuk Fitur 6.
 	// Query langsung ke /metrics/resource tiap kubelet (bukan lewat metrics.k8s.io,
 	// yang tidak pernah bisa diakses karena Service metrics-server tak pernah Ready)

@@ -23,11 +23,13 @@ export default function AlertsEventsView() {
   const [filterSeverity, setFilterSeverity] = useState('all');
   const [alerts, setAlerts] = useState([]);
   const [webhookConfigured, setWebhookConfigured] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = () => fetchAlerts().then((data) => {
       setAlerts(data.alerts);
       setWebhookConfigured(data.webhookConfigured);
+      setLoading(false);
     });
     load();
     const ALERTS_REFRESH_MS = 30 * 1000; // sama seperti interval evaluasi di backend
@@ -38,6 +40,8 @@ export default function AlertsEventsView() {
   const filteredAlerts = alerts.filter((item) => filterSeverity === 'all' || item.severity === filterSeverity);
   const criticalCount = alerts.filter((a) => a.severity === 'critical').length;
   const warningCount = alerts.filter((a) => a.severity === 'warning').length;
+
+  if (loading) return <div style={{ padding: '20px', color: '#64748B' }}>Loading alerts...</div>;
 
   return (
     <div className="dashboard-view-container">

@@ -79,6 +79,25 @@ export default function LoginPage({ onLogin }) {
 
         {/* Right Section: Login Form */}
         <div className="login-form-wrapper">
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              color: '#B45309',
+              backgroundColor: '#FFFBEB',
+              border: '1px solid #FDE68A',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              marginBottom: '12px',
+              width: 'fit-content',
+            }}
+            title="Kredensial belum divalidasi — username/password apapun akan diterima. Jangan expose dashboard ini ke jaringan publik sampai auth sungguhan terpasang."
+          >
+            ⚠ Development Mode — No Auth Validation
+          </div>
           <form
             onSubmit={handleLogin}
             className={`login-form ${isShaking ? 'form-shake' : ''}`}

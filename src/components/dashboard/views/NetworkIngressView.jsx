@@ -14,11 +14,13 @@ export default function NetworkIngressView() {
   const [services, setServices] = useState([]);
   const [ingressRoutes, setIngressRoutes] = useState([]);
   const [traffic, setTraffic] = useState({ metricsAvailable: false, hasRate: false, requestRatePerMin: 0, errorRatePercent: 0, avgLatencyMs: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchNetworkIngress().then((data) => {
       setServices(data.services);
       setIngressRoutes(data.ingress);
+      setLoading(false);
     });
 
     const loadTraffic = () => fetchTrafficOverview().then((data) => setTraffic(data));
@@ -28,6 +30,8 @@ export default function NetworkIngressView() {
     return () => clearInterval(intervalId);
   }, []);
 
+  if (loading) return <div style={{ padding: '20px', color: '#64748B' }}>Loading network overview...</div>;
+
   return (
     <div className="dashboard-view-container">
       {/* Header */}
@@ -35,7 +39,7 @@ export default function NetworkIngressView() {
         <div className="view-title-group">
           <h2>Network Topology, Ingress & Traffic</h2>
           <p>
-            Service discovery (ClusterIP/NodePort/LoadBalancer), Ingress routing rules, and edge traffic (Fitur 8)
+            Service discovery (ClusterIP/NodePort/LoadBalancer), Ingress routing rules, and live traffic health
           </p>
         </div>
         <div className="view-actions-group">

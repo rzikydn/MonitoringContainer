@@ -43,35 +43,29 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from './dashboard/DropdownMenu';
 import {
-  Activity,
   LayoutDashboard,
   Boxes,
   Network,
   Terminal,
   Bell,
   Rocket,
-  PlusCircle,
   Server,
   Cpu,
   Folder,
   FolderPlus,
   Sliders,
-  Settings,
   ChevronRight,
   ChevronsUpDown,
   LogOut,
   BadgeCheck,
-  CreditCard,
   Sparkles,
   Plus,
   Trash2,
   Forward,
   MoreHorizontal,
-  Layers,
   X,
 } from 'lucide-react';
 import {
@@ -93,30 +87,8 @@ import NamespaceDetailView from './dashboard/views/NamespaceDetailView';
 import ClusterSettingsView from './dashboard/views/ClusterSettingsView';
 import { fetchNamespaces, createNamespace, deleteNamespace } from '../services/api';
 
-const CLUSTERS_DATA = [
-  {
-    name: 'Production Cluster',
-    subtext: 'VM 141 & 142 (Active)',
-    logo: Activity,
-    plan: 'High Availability',
-  },
-  {
-    name: 'Staging Cluster',
-    subtext: 'VM 143 (Standalone)',
-    logo: Server,
-    plan: 'Single Node',
-  },
-  {
-    name: 'Development Cluster',
-    subtext: 'Local Kind / Minikube',
-    logo: Layers,
-    plan: 'Dev Sandboxed',
-  },
-];
-
 export default function DashboardPage({ user, onLogout }) {
   const isMobile = useIsMobile();
-  const [activeCluster, setActiveCluster] = useState(CLUSTERS_DATA[0]);
   const [activeTab, setActiveTab] = useState('cluster-overview');
   const [selectedNamespace, setSelectedNamespace] = useState('');
   const [selectedLogTarget, setSelectedLogTarget] = useState(null);
@@ -238,107 +210,35 @@ export default function DashboardPage({ user, onLogout }) {
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader>
-          {/* Cluster Switcher */}
+          {/* Identitas cluster real (bukan lagi switcher multi-cluster palsu —
+              backend ini hanya pernah terhubung ke satu cluster) */}
           <SidebarMenu>
             <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton
-                    size="lg"
-                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                  >
-                    <div
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '8px',
-                        backgroundColor: '#284C6E',
-                        color: '#FFFFFF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <activeCluster.logo style={{ width: '16px', height: '16px' }} />
-                    </div>
-                    <div
-                      className="grid flex-1 text-left text-sm leading-tight"
-                      style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '2px' }}
-                    >
-                      <span
-                        className="truncate font-semibold"
-                        style={{ fontSize: '0.86rem', fontWeight: 600, color: '#0F172A' }}
-                      >
-                        {activeCluster.name}
-                      </span>
-                      <span className="truncate text-xs" style={{ fontSize: '0.74rem', color: '#64748B' }}>
-                        {activeCluster.subtext}
-                      </span>
-                    </div>
-                    <ChevronsUpDown className="ml-auto" style={{ width: '14px', height: '14px', color: '#64748B' }} />
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                  align="start"
-                  side={isMobile ? 'bottom' : 'right'}
-                  sideOffset={4}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    backgroundColor: '#284C6E',
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
                 >
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    Active Clusters
-                  </DropdownMenuLabel>
-                  {CLUSTERS_DATA.map((cluster, index) => (
-                    <DropdownMenuItem
-                      key={cluster.name}
-                      onClick={() => setActiveCluster(cluster)}
-                      className="gap-2 p-2"
-                    >
-                      <div
-                        style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '4px',
-                          border: '1px solid #E2E8F0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <cluster.logo style={{ width: '14px', height: '14px', color: '#284C6E' }} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: 500, fontSize: '0.84rem' }}>{cluster.name}</span>
-                        <span style={{ fontSize: '0.72rem', color: '#64748B' }}>{cluster.plan}</span>
-                      </div>
-                      <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="gap-2 p-2"
-                    onClick={() => alert('Add new Kubernetes node / cluster wizard')}
-                  >
-                    <div
-                      style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '6px',
-                        border: '1px solid #E2E8F0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#FFFFFF',
-                      }}
-                    >
-                      <Plus className="size-4" style={{ width: '14px', height: '14px' }} />
-                    </div>
-                    <div className="font-medium text-muted-foreground" style={{ fontSize: '0.84rem' }}>
-                      Add Cluster
-                    </div>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  <Server style={{ width: '16px', height: '16px' }} />
+                </div>
+                <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span className="truncate font-semibold" style={{ fontSize: '0.86rem', fontWeight: 600, color: '#0F172A' }}>
+                    Kubernetes Cluster
+                  </span>
+                  <span className="truncate text-xs" style={{ fontSize: '0.74rem', color: '#64748B' }}>
+                    {namespaces.length} namespace{namespaces.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarHeader>
@@ -751,7 +651,7 @@ export default function DashboardPage({ user, onLogout }) {
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
                 <BreadcrumbLink href="#" onClick={(e) => { e.preventDefault(); setActiveTab('cluster-overview'); }}>
-                  {activeCluster.name}
+                  Kubernetes Cluster
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
@@ -833,7 +733,7 @@ export default function DashboardPage({ user, onLogout }) {
             </div>
 
             <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B' }}>
-              Segregate projects and assign independent quotas instantly across cluster nodes without provisioning new physical servers.
+              Setiap namespace baru otomatis dilengkapi resource quota, network isolation, dan RBAC scoped — cukup isi form ini, tanpa kubectl.
             </p>
 
             {namespaceActionError && (

@@ -1,56 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Sliders,
-  Settings,
   Bell,
-  Shield,
-  HardDrive,
-  Save,
   CheckCircle2,
-  Lock,
+  AlertCircle,
   Send,
 } from 'lucide-react';
+import { fetchAlerts, sendTestAlert } from '../../../services/api';
 
 export default function ClusterSettingsView() {
-  const [telegramToken, setTelegramToken] = useState('');
-  const [telegramChatId, setTelegramChatId] = useState('');
-  const [discordWebhook, setDiscordWebhook] = useState('');
-  const [registryUrl, setRegistryUrl] = useState('');
-  const [registryUser, setRegistryUser] = useState('');
-  const [savedSuccess, setSavedSuccess] = useState(false);
-  const [testedWebhook, setTestedWebhook] = useState(false);
+  const [webhookConfigured, setWebhookConfigured] = useState(false);
+  const [telegramConfigured, setTelegramConfigured] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+  useEffect(() => {
+    fetchAlerts().then((data) => {
+      setWebhookConfigured(data.webhookConfigured);
+      setTelegramConfigured(data.telegramConfigured);
+    });
+  }, []);
+
+  const handleTestAlert = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await sendTestAlert();
+      setTestResult(result.sent
+        ? { type: 'success', text: 'Test alert berhasil dikirim ke channel yang dikonfigurasi.' }
+        : { type: 'error', text: result.message || 'Belum ada channel yang dikonfigurasi.' });
+    } catch (err) {
+      setTestResult({ type: 'error', text: err.message });
+    } finally {
+      setTesting(false);
+    }
   };
 
-  const handleTestWebhook = () => {
-    setTestedWebhook(true);
-    setTimeout(() => setTestedWebhook(false), 3000);
-  };
+  const anyConfigured = webhookConfigured || telegramConfigured;
 
   return (
     <div className="dashboard-view-container">
       {/* Header */}
       <div className="view-header-row">
         <div className="view-title-group">
-          <h2>Cluster Configuration & Integrations</h2>
-          <p>
-            Configure automated incident alert webhooks, private image registry credentials, and cluster state backup
-          </p>
+          <h2>Alert Notification Settings</h2>
+          <p>Status channel notifikasi untuk alert cluster (node down, pod restart, resource threshold)</p>
         </div>
       </div>
 
-      {savedSuccess && (
+      {testResult && (
         <div
           style={{
-            backgroundColor: '#DCFCE7',
-            border: '1px solid #BBF7D0',
+            backgroundColor: testResult.type === 'success' ? '#DCFCE7' : '#FEF2F2',
+            border: `1px solid ${testResult.type === 'success' ? '#BBF7D0' : '#FECACA'}`,
             borderRadius: '10px',
             padding: '12px 16px',
-            color: '#15803D',
+            color: testResult.type === 'success' ? '#15803D' : '#B91C1C',
             fontSize: '0.85rem',
             display: 'flex',
             alignItems: 'center',
@@ -58,168 +62,67 @@ export default function ClusterSettingsView() {
             fontWeight: 500,
           }}
         >
-          <CheckCircle2 style={{ width: '16px', height: '16px' }} />
-          Cluster settings and credentials successfully updated!
+          {testResult.type === 'success' ? (
+            <CheckCircle2 style={{ width: '16px', height: '16px' }} />
+          ) : (
+            <AlertCircle style={{ width: '16px', height: '16px' }} />
+          )}
+          {testResult.text}
         </div>
       )}
 
-      {testedWebhook && (
-        <div
-          style={{
-            backgroundColor: '#EFF6FF',
-            border: '1px solid #BFDBFE',
-            borderRadius: '10px',
-            padding: '12px 16px',
-            color: '#1E40AF',
-            fontSize: '0.85rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontWeight: 500,
-          }}
-        >
-          <Send style={{ width: '16px', height: '16px' }} />
-          Test alert dispatched to Telegram & Discord successfully!
-        </div>
-      )}
-
-      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* 1. Alert Webhook Integration */}
-        <div className="node-box">
-          <div className="node-box-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Bell style={{ width: '18px', height: '18px', color: '#284C6E' }} />
-              <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>
-                Incident Alert Webhooks (Telegram & Discord)
-              </h3>
-            </div>
-            <button
-              type="button"
-              onClick={handleTestWebhook}
-              className="btn-dash btn-dash-secondary btn-dash-sm"
-            >
-              <Send style={{ width: '12px', height: '12px' }} />
-              Send Test Notification
-            </button>
+      <div className="node-box">
+        <div className="node-box-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Bell style={{ width: '18px', height: '18px', color: '#284C6E' }} />
+            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>
+              Incident Alert Channels
+            </h3>
           </div>
-
-          <div className="dash-form-grid">
-            <div className="dash-form-group">
-              <label className="dash-form-label">Telegram Bot Token</label>
-              <input
-                type="password"
-                value={telegramToken}
-                onChange={(e) => setTelegramToken(e.target.value)}
-                className="dash-form-input"
-                placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
-              />
-            </div>
-
-            <div className="dash-form-group">
-              <label className="dash-form-label">Telegram Chat ID / Channel</label>
-              <input
-                type="text"
-                value={telegramChatId}
-                onChange={(e) => setTelegramChatId(e.target.value)}
-                className="dash-form-input"
-                placeholder="-1001234567890"
-              />
-            </div>
-          </div>
-
-          <div className="dash-form-group">
-            <label className="dash-form-label">Discord Webhook URL</label>
-            <input
-              type="text"
-              value={discordWebhook}
-              onChange={(e) => setDiscordWebhook(e.target.value)}
-              className="dash-form-input"
-              placeholder="https://discord.com/api/webhooks/..."
-            />
-          </div>
-        </div>
-
-        {/* 2. Private Registry Credentials */}
-        <div className="node-box">
-          <div className="node-box-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shield style={{ width: '18px', height: '18px', color: '#284C6E' }} />
-              <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>
-                Private Image Registry Authentication (Harbor / Docker Hub)
-              </h3>
-            </div>
-          </div>
-
-          <div className="dash-form-grid">
-            <div className="dash-form-group">
-              <label className="dash-form-label">Registry Domain URL</label>
-              <input
-                type="text"
-                value={registryUrl}
-                onChange={(e) => setRegistryUrl(e.target.value)}
-                className="dash-form-input"
-              />
-            </div>
-
-            <div className="dash-form-group">
-              <label className="dash-form-label">Registry Robot Account / Username</label>
-              <input
-                type="text"
-                value={registryUser}
-                onChange={(e) => setRegistryUser(e.target.value)}
-                className="dash-form-input"
-              />
-            </div>
-          </div>
-
-          <div className="dash-form-group">
-            <label className="dash-form-label">Secret Token / Password</label>
-            <input
-              type="password"
-              defaultValue="••••••••••••••••••••••••"
-              className="dash-form-input"
-            />
-          </div>
-        </div>
-
-        {/* 3. Cluster State Backup */}
-        <div className="node-box">
-          <div className="node-box-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <HardDrive style={{ width: '18px', height: '18px', color: '#284C6E' }} />
-              <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>
-                ETCD Snapshot & Cluster State Backup
-              </h3>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#0F172A' }}>
-                Automated Daily Snapshot
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>
-                Last snapshot: 6 hours ago • Destination: /var/backups/k8s_state_latest.tar.gz
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => alert('Snapshot backup dispatched to ETCD!')}
-              className="btn-dash btn-dash-secondary btn-dash-sm"
-            >
-              Backup State Now
-            </button>
-          </div>
-        </div>
-
-        {/* Save Button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="submit" className="btn-dash btn-dash-primary" style={{ minWidth: '160px' }}>
-            <Save style={{ width: '14px', height: '14px' }} />
-            Save Configuration
+          <button
+            type="button"
+            onClick={handleTestAlert}
+            disabled={testing || !anyConfigured}
+            className="btn-dash btn-dash-secondary btn-dash-sm"
+            title={anyConfigured ? 'Kirim test alert ke channel yang aktif' : 'Belum ada channel dikonfigurasi'}
+          >
+            <Send style={{ width: '12px', height: '12px' }} />
+            {testing ? 'Sending...' : 'Send Test Alert'}
           </button>
         </div>
-      </form>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '4px 0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #E2E8F0' }}>
+            <div>
+              <div style={{ fontWeight: 600, color: '#0F172A' }}>Generic Webhook</div>
+              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>Slack, Discord, Microsoft Teams, atau webhook JSON generik lainnya</div>
+            </div>
+            <span className={`k8s-badge ${webhookConfigured ? 'badge-success' : 'badge-muted'}`}>
+              {webhookConfigured ? 'Configured' : 'Not Configured'}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
+            <div>
+              <div style={{ fontWeight: 600, color: '#0F172A' }}>Telegram Bot</div>
+              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>Kirim ke chat/group/channel Telegram lewat bot</div>
+            </div>
+            <span className={`k8s-badge ${telegramConfigured ? 'badge-success' : 'badge-muted'}`}>
+              {telegramConfigured ? 'Configured' : 'Not Configured'}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ fontSize: '0.78rem', color: '#64748B', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px', marginTop: '4px' }}>
+          Channel dikonfigurasi lewat environment variable di backend (bukan lewat form ini — kredensial sensitif seperti ini
+          sengaja tidak disimpan dari browser). Set salah satu atau kedua, lalu restart backend:
+          <div style={{ fontFamily: 'monospace', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <span>ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...</span>
+            <span>TELEGRAM_BOT_TOKEN=123456789:ABC...</span>
+            <span>TELEGRAM_CHAT_ID=-1001234567890</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default function ClusterOverviewView({ onNavigate }) {
       <div className="view-header-row">
         <div className="view-title-group">
           <h2>Cluster Overview & Aggregated Capacity</h2>
-          <p>Real-time telemetry and node health across VM 141 & VM 142 (Production)</p>
+          <p>Real-time telemetry and node health across {clusterData.nodes.length} node{clusterData.nodes.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="view-actions-group">
           <span className={`k8s-badge ${allNodesReady ? 'badge-success' : 'badge-danger'}`}>

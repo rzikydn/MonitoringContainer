@@ -18,9 +18,7 @@ function formatStorage(usedBytes, totalBytes) {
 }
 
 
-// 1. Fitur 1 & 2: Agregasi Kapasitas Cluster & Status Failover Node
-// 1. Fitur 1 & 2: Membaca Data Real dari kubectl proxy (Port 8001)
-// 1. Fitur 1 & 2: Agregasi Kapasitas Cluster & Status Failover Node
+// Agregasi kapasitas cluster (CPU/RAM/Disk) + status Ready/NotReady per node.
 export async function fetchClusterOverview() {
   try {
     const res = await fetch(`${BASE_URL}/api/v1/nodes`);
@@ -174,14 +172,9 @@ export async function fetchWorkloadsPods(namespace = 'all') {
       ready: Boolean(pod.ready),
       containers: pod.containers || [],
     }));
-  } catch {
-    return [
-      { name: 'asset-api-deployment-78f94d97f-m1a2b', namespace: 'asset-mgmt', node: 'node-vm-141', status: 'Running', restarts: 0, cpu: '180m', memory: '245 Mi', uptime: '12d 4h' },
-      { name: 'asset-worker-db-sync-547ccb8c9-j4k5l', namespace: 'asset-mgmt', node: 'node-vm-141', status: 'Running', restarts: 1, cpu: '95m', memory: '180 Mi', uptime: '5d 8h' },
-      { name: 'spending-web-frontend-6b45d9ff9-x8y9z', namespace: 'spending-mgmt', node: 'node-vm-142', status: 'Running', restarts: 0, cpu: '120m', memory: '190 Mi', uptime: '14d 2h' },
-      { name: 'spending-cron-analyzer-849c7f667-q1w2e', namespace: 'spending-mgmt', node: 'node-vm-142', status: 'CrashLoopBackOff', restarts: 4, cpu: '15m', memory: '82 Mi', uptime: '10m' },
-      { name: 'redis-cache-master-0', namespace: 'core-services', node: 'node-vm-141', status: 'Running', restarts: 0, cpu: '65m', memory: '310 Mi', uptime: '45d 14h' },
-    ];
+  } catch (err) {
+    console.error('Gagal mengambil pods dari Kubernetes:', err.message);
+    return [];
   }
 }
 
@@ -219,6 +212,31 @@ export async function fetchDeployments(namespace = 'all') {
     console.error('Gagal mengambil deployments dari Kubernetes:', err.message);
     return [];
   }
+}
+
+// App Services: scale (Start/Stop/slider) dan restart (rolling restart) Deployment real.
+export async function scaleDeployment(namespace, name, replicas) {
+  const res = await fetch(`${BASE_URL}/api/v1/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/scale`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ replicas }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Gagal scale deployment');
+  }
+  return await res.json();
+}
+
+export async function restartDeployment(namespace, name) {
+  const res = await fetch(`${BASE_URL}/api/v1/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/restart`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Gagal restart deployment');
+  }
+  return await res.json();
 }
 
 // Fitur 6: Live Container Metrics — CPU/RAM per pod, langsung dari kubelet tiap
@@ -295,7 +313,6 @@ export async function deleteNamespace(name) {
   return await res.json();
 }
 
-// 3. Fitur 3 & 4: Namespace Project Quotas & Limits
 // Fitur 4: Quota & Limit Monitoring — pakai ResourceQuota asli kalau namespace
 // punya satu (untuk batas/"hard"), used selalu dihitung real dari request
 // container pod + PVC (bukan dikarang) supaya tetap informatif walau namespace
@@ -332,7 +349,6 @@ export async function fetchNamespaceQuota(namespaceKey) {
   }
 }
 
-// 4. Fitur 7 & 8: Services, Ingress & Traffic Health Check
 // Fitur 7: Service & Ingress Overview — data real Service/Endpoints/Ingress.
 // Traffic rate/latency/HTTP error (request-level) sengaja tidak ada di sini,
 // itu ranah Fitur 8 (butuh probing HTTP asli, belum ada mekanismenya).
@@ -388,7 +404,6 @@ export async function fetchTrafficOverview() {
   }
 }
 
-// 5. Fitur 9: Centralized Container Log Streamer
 // Fitur 9: Centralized Log Viewer — streaming asli (SSE) langsung dari Kubernetes
 // API (setara `kubectl logs -f`), bukan polling atau simulasi. Dipakai dengan
 // `new EventSource(buildLogStreamUrl(...))` di komponen, karena EventSource tidak
@@ -399,7 +414,6 @@ export function buildLogStreamUrl(namespace, pod, container, tailLines = 200) {
   return `${BASE_URL}/api/workloads/logs?${params.toString()}`;
 }
 
-// 6. Fitur 10: Alert Notifications List
 // Fitur 10: Alert Notifications — node down, pod sering restart, resource >85%.
 // Dihitung terus-menerus di backend (bukan cuma saat halaman ini dibuka), dan
 // dikirim ke webhook (kalau ALERT_WEBHOOK_URL sudah di-set di backend).
@@ -417,11 +431,21 @@ export async function fetchAlerts() {
         time: a.time,
       })),
       webhookConfigured: Boolean(rawData.webhookConfigured),
+      telegramConfigured: Boolean(rawData.telegramConfigured),
     };
   } catch (err) {
     console.error('Gagal mengambil alerts dari Kubernetes:', err.message);
-    return { alerts: [], webhookConfigured: false };
+    return { alerts: [], webhookConfigured: false, telegramConfigured: false };
   }
+}
+
+export async function sendTestAlert() {
+  const res = await fetch(`${BASE_URL}/api/v1/alerts/test`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || err.message || 'Gagal mengirim test alert');
+  }
+  return await res.json();
 }
 
 // Fitur 11: Zero-CLI Deployment — bikin Deployment + Service sungguhan.
@@ -440,7 +464,8 @@ export async function deployApplication(payload) {
   return await res.json();
 }
 
-// 8. Autentikasi User
+// Autentikasi user — lihat catatan di LoginPage.jsx & backend main.go: belum ada
+// validasi kredensial sungguhan (masih stub, ditandai jelas di UI login).
 export async function loginUser(username, password) {
   try {
     const res = await fetch(`${BASE_URL}/auth/login`, {

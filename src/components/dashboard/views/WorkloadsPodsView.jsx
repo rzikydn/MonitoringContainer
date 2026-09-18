@@ -29,12 +29,12 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
   const [namespaces, setNamespaces] = useState([]);
   const [restartingPod, setRestartingPod] = useState(null);
   const [podMetrics, setPodMetrics] = useState({ metricsAvailable: false, byKey: {} });
+  const [loading, setLoading] = useState(true);
 
   const loadPods = () => fetchWorkloadsPods().then((data) => setPods(data));
 
   useEffect(() => {
-    loadPods();
-    fetchDeployments().then((data) => setDeployments(data));
+    Promise.all([loadPods(), fetchDeployments().then((data) => setDeployments(data))]).finally(() => setLoading(false));
     fetchNamespaces().then((data) => setNamespaces(data));
 
     const loadMetrics = () => fetchPodMetrics().then((data) => setPodMetrics(data));
@@ -73,6 +73,8 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
       setRestartingPod(null);
     }
   };
+
+  if (loading) return <div style={{ padding: '20px', color: '#64748B' }}>Loading workloads...</div>;
 
   return (
     <div className="dashboard-view-container">

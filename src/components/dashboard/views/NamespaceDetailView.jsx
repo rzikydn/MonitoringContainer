@@ -83,7 +83,7 @@ export default function NamespaceDetailView({ namespaceKey, namespaceMeta }) {
       {/* Fitur 4: Quota & Limit Monitoring Cards */}
       <div>
         <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
-          Resource Quota & Hard Limits (Fitur 4)
+          Resource Quota & Hard Limits
         </div>
 
         <div className="metrics-stat-grid">
