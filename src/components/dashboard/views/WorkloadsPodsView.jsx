@@ -196,6 +196,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
               <th>Node</th>
               <th>Status</th>
               <th>Restarts</th>
+              <th>Probes</th>
               <th>CPU Live</th>
               <th>Memory Live</th>
               <th>Age</th>
@@ -240,6 +241,24 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
                   >
                     {pod.restarts}x
                   </span>
+                </td>
+                <td>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <span
+                      title={pod.hasLivenessProbe ? 'Liveness probe configured' : 'No liveness probe configured'}
+                      className={`k8s-badge ${pod.hasLivenessProbe ? (pod.ready ? 'badge-success' : 'badge-danger') : 'badge-muted'}`}
+                      style={{ fontSize: '0.68rem', padding: '2px 6px' }}
+                    >
+                      L
+                    </span>
+                    <span
+                      title={pod.hasReadinessProbe ? 'Readiness probe configured' : 'No readiness probe configured'}
+                      className={`k8s-badge ${pod.hasReadinessProbe ? (pod.ready ? 'badge-success' : 'badge-danger') : 'badge-muted'}`}
+                      style={{ fontSize: '0.68rem', padding: '2px 6px' }}
+                    >
+                      R
+                    </span>
+                  </div>
                 </td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

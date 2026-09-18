@@ -169,6 +169,9 @@ export async function fetchWorkloadsPods(namespace = 'all') {
       cpu: 'N/A',
       memory: 'N/A',
       uptime: formatAge(pod.startTime),
+      hasLivenessProbe: Boolean(pod.hasLivenessProbe),
+      hasReadinessProbe: Boolean(pod.hasReadinessProbe),
+      ready: Boolean(pod.ready),
     }));
   } catch {
     return [
@@ -359,6 +362,28 @@ export async function fetchNetworkIngress() {
   } catch (err) {
     console.error('Gagal mengambil network overview dari Kubernetes:', err.message);
     return { services: [], ingress: [] };
+  }
+}
+
+// Fitur 8: Traffic In/Out — request rate, error rate (4xx/5xx), latency,
+// dari metrics Prometheus bawaan ingress-nginx-controller. Perlu 2x polling
+// sebelum rate terisi (delta counter), sama seperti pola CPU di fitur lain.
+export async function fetchTrafficOverview() {
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/network/traffic`);
+    if (!res.ok) throw new Error('API Offline');
+    const rawData = await res.json();
+    return {
+      metricsAvailable: Boolean(rawData.metricsAvailable),
+      hasRate: Boolean(rawData.hasRate),
+      requestRatePerMin: Number(rawData.requestRatePerMin) || 0,
+      errorRatePercent: Number(rawData.errorRatePercent) || 0,
+      avgLatencyMs: Number(rawData.avgLatencyMs) || 0,
+      error: rawData.error || null,
+    };
+  } catch (err) {
+    console.error('Gagal mengambil traffic overview dari Kubernetes:', err.message);
+    return { metricsAvailable: false, hasRate: false, requestRatePerMin: 0, errorRatePercent: 0, avgLatencyMs: 0, error: err.message };
   }
 }
 

@@ -5,18 +5,27 @@ import {
   CheckCircle2,
   AlertCircle,
   Zap,
+  Activity,
+  ArrowLeftRight,
 } from 'lucide-react';
-import { fetchNetworkIngress } from '../../../services/api';
+import { fetchNetworkIngress, fetchTrafficOverview } from '../../../services/api';
 
 export default function NetworkIngressView() {
   const [services, setServices] = useState([]);
   const [ingressRoutes, setIngressRoutes] = useState([]);
+  const [traffic, setTraffic] = useState({ metricsAvailable: false, hasRate: false, requestRatePerMin: 0, errorRatePercent: 0, avgLatencyMs: 0 });
 
   useEffect(() => {
     fetchNetworkIngress().then((data) => {
       setServices(data.services);
       setIngressRoutes(data.ingress);
     });
+
+    const loadTraffic = () => fetchTrafficOverview().then((data) => setTraffic(data));
+    loadTraffic();
+    const TRAFFIC_REFRESH_MS = 15 * 1000;
+    const intervalId = setInterval(loadTraffic, TRAFFIC_REFRESH_MS);
+    return () => clearInterval(intervalId);
   }, []);
 
   return (
@@ -24,9 +33,9 @@ export default function NetworkIngressView() {
       {/* Header */}
       <div className="view-header-row">
         <div className="view-title-group">
-          <h2>Network Topology & Ingress Routes</h2>
+          <h2>Network Topology, Ingress & Traffic</h2>
           <p>
-            Service discovery (ClusterIP/NodePort/LoadBalancer) and Ingress routing rules
+            Service discovery (ClusterIP/NodePort/LoadBalancer), Ingress routing rules, and edge traffic (Fitur 8)
           </p>
         </div>
         <div className="view-actions-group">
@@ -34,6 +43,57 @@ export default function NetworkIngressView() {
             <Network style={{ width: '13px', height: '13px' }} />
             {services.length} Services • {ingressRoutes.length} Routes
           </span>
+        </div>
+      </div>
+
+      {/* Traffic In/Out & Health Check (Fitur 8) — real dari metrics ingress-nginx-controller */}
+      <div className="metrics-stat-grid">
+        <div className="metric-stat-card">
+          <div className="metric-card-top">
+            <span className="metric-card-title">Request Rate</span>
+            <ArrowLeftRight style={{ width: '18px', height: '18px' }} />
+          </div>
+          <div className="metric-card-value">
+            {traffic.metricsAvailable && traffic.hasRate ? traffic.requestRatePerMin.toFixed(1) : 'N/A'}{' '}
+            <span style={{ fontSize: '0.85rem', color: '#64748B' }}>req/min</span>
+          </div>
+          <div className="metric-card-subtext">
+            {!traffic.metricsAvailable ? (
+              <span style={{ color: '#B45309' }}>ingress-nginx metrics unavailable</span>
+            ) : !traffic.hasRate ? (
+              <span style={{ color: '#64748B' }}>Menunggu sampel kedua...</span>
+            ) : (
+              'dari ingress-nginx-controller'
+            )}
+          </div>
+        </div>
+
+        <div className="metric-stat-card">
+          <div className="metric-card-top">
+            <span className="metric-card-title">Error Rate (4xx/5xx)</span>
+            <AlertCircle style={{ width: '18px', height: '18px' }} />
+          </div>
+          <div className="metric-card-value">
+            {traffic.metricsAvailable && traffic.hasRate ? traffic.errorRatePercent.toFixed(2) : 'N/A'}{' '}
+            <span style={{ fontSize: '0.85rem', color: '#64748B' }}>%</span>
+          </div>
+          <div className="metric-card-subtext">
+            {traffic.metricsAvailable && traffic.hasRate ? 'dari total request masuk' : 'Belum ada data'}
+          </div>
+        </div>
+
+        <div className="metric-stat-card">
+          <div className="metric-card-top">
+            <span className="metric-card-title">Avg Latency</span>
+            <Activity style={{ width: '18px', height: '18px' }} />
+          </div>
+          <div className="metric-card-value">
+            {traffic.metricsAvailable && traffic.hasRate ? traffic.avgLatencyMs.toFixed(0) : 'N/A'}{' '}
+            <span style={{ fontSize: '0.85rem', color: '#64748B' }}>ms</span>
+          </div>
+          <div className="metric-card-subtext">
+            {traffic.metricsAvailable && traffic.hasRate ? 'rata-rata semua request' : 'Belum ada data'}
+          </div>
         </div>
       </div>
 

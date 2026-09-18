@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"k8s-dashboard-backend/pkg/ingressmetrics"
 	"k8s-dashboard-backend/pkg/k8s"
 	"k8s-dashboard-backend/pkg/kubeletmetrics"
 	"k8s-dashboard-backend/pkg/nodeexporter"
@@ -108,6 +109,31 @@ func ingressControllerNamespace() string {
 	return "ingress-nginx"
 }
 
+func ingressMetricsPort() int {
+	if v := os.Getenv("INGRESS_METRICS_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			return port
+		}
+	}
+	return 10254
+}
+
+// nginxSampleCache: sampel counter terakhir dari ingress-nginx-controller,
+// dipakai untuk menghitung delta (request rate, error rate) antar request —
+// sama seperti pola cpuSampleCache. Fitur 8 (Traffic In/Out & Health Check).
+type nginxSample struct {
+	timestamp          time.Time
+	totalRequests      float64
+	errorRequests      float64
+	durationSumSeconds float64
+	durationCount      float64
+}
+
+var nginxSampleCache struct {
+	sync.Mutex
+	sample *nginxSample
+}
+
 // firstMilli/firstValue mencari key pertama yang ada di ResourceList (mis. Status.Hard
 // sebuah ResourceQuota) dari beberapa kemungkinan penamaan resource (requests.cpu vs
 // limits.cpu vs cpu), karena cluster berbeda bisa memakai konvensi ResourceQuota berbeda.
@@ -195,13 +221,35 @@ func main() {
 				}
 			}
 
+			// Fitur 8: status liveness/readiness probe real, dari config container
+			// (apakah probe didefinisikan) + status Ready pod saat ini.
+			hasLivenessProbe := false
+			hasReadinessProbe := false
+			for _, container := range pod.Spec.Containers {
+				if container.LivenessProbe != nil {
+					hasLivenessProbe = true
+				}
+				if container.ReadinessProbe != nil {
+					hasReadinessProbe = true
+				}
+			}
+			ready := false
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+					ready = true
+				}
+			}
+
 			podList = append(podList, map[string]interface{}{
-				"name":      pod.Name,
-				"namespace": pod.Namespace,
-				"node":      pod.Spec.NodeName,
-				"status":    status,
-				"restarts":  restarts,
-				"startTime": pod.CreationTimestamp.Time,
+				"name":              pod.Name,
+				"namespace":         pod.Namespace,
+				"node":              pod.Spec.NodeName,
+				"status":            status,
+				"restarts":          restarts,
+				"startTime":         pod.CreationTimestamp.Time,
+				"hasLivenessProbe":  hasLivenessProbe,
+				"hasReadinessProbe": hasReadinessProbe,
+				"ready":             ready,
 			})
 		}
 
@@ -491,6 +539,91 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"services": svcData, "ingress": ingData})
+	})
+
+	// Endpoint Traffic: sumber data untuk Fitur 8 (Traffic In/Out & Health Check).
+	// Scrape langsung metrics Prometheus bawaan ingress-nginx-controller (pod IP,
+	// bukan lewat metrics.k8s.io). BELUM DIVERIFIKASI apakah pod IP terjangkau dari
+	// tempat backend ini berjalan — kalau tidak, endpoint ini akan selalu
+	// mengembalikan metricsAvailable:false, bukan berarti kodenya salah.
+	r.GET("/api/v1/network/traffic", func(c *gin.Context) {
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		pods, err := clientset.CoreV1().Pods(ingressControllerNamespace()).List(requestContext, metav1.ListOptions{})
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": err.Error()})
+			return
+		}
+
+		var podIP string
+		for _, p := range pods.Items {
+			if strings.Contains(p.Name, "controller") && p.Status.PodIP != "" {
+				podIP = p.Status.PodIP
+				break
+			}
+		}
+		if podIP == "" {
+			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": "ingress controller pod tidak ditemukan"})
+			return
+		}
+
+		snap, fetchErr := ingressmetrics.Fetch(podIP, ingressMetricsPort(), 3*time.Second)
+		if fetchErr != nil {
+			log.Printf("Gagal mengambil metrics ingress-nginx dari pod %s (%s): %v", podIP, ingressControllerNamespace(), fetchErr)
+			c.JSON(http.StatusOK, gin.H{"metricsAvailable": false, "error": fetchErr.Error()})
+			return
+		}
+
+		nginxSampleCache.Lock()
+		prev := nginxSampleCache.sample
+		now := time.Now()
+		nginxSampleCache.sample = &nginxSample{
+			timestamp:          now,
+			totalRequests:      snap.TotalRequests,
+			errorRequests:      snap.ErrorRequests,
+			durationSumSeconds: snap.DurationSumSeconds,
+			durationCount:      snap.DurationCount,
+		}
+		nginxSampleCache.Unlock()
+
+		hasRate := false
+		requestRatePerMin := 0.0
+		errorRatePercent := 0.0
+		avgLatencyMs := 0.0
+		if prev != nil {
+			elapsedMin := now.Sub(prev.timestamp).Minutes()
+			if elapsedMin > 0 {
+				reqDelta := snap.TotalRequests - prev.totalRequests
+				errDelta := snap.ErrorRequests - prev.errorRequests
+				if reqDelta < 0 {
+					reqDelta = 0 // counter reset (mis. controller restart)
+				}
+				if errDelta < 0 {
+					errDelta = 0
+				}
+				requestRatePerMin = reqDelta / elapsedMin
+				if reqDelta > 0 {
+					errorRatePercent = errDelta / reqDelta * 100
+				}
+
+				durSumDelta := snap.DurationSumSeconds - prev.durationSumSeconds
+				durCountDelta := snap.DurationCount - prev.durationCount
+				if durCountDelta > 0 {
+					avgLatencyMs = (durSumDelta / durCountDelta) * 1000
+				}
+				hasRate = true
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"metricsAvailable":  true,
+			"hasRate":           hasRate,
+			"requestRatePerMin": requestRatePerMin,
+			"errorRatePercent":  errorRatePercent,
+			"avgLatencyMs":      avgLatencyMs,
+			"totalRequests":     snap.TotalRequests,
+		})
 	})
 
 	// Endpoint Namespaces: sumber data untuk Fitur 3 (Project/Namespace Grouping).
