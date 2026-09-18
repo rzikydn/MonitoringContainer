@@ -4,13 +4,15 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"k8s-dashboard-backend/pkg/k8s"
+	"k8s-dashboard-backend/pkg/nodeexporter"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 var clusterOverviewCache struct {
@@ -18,20 +20,37 @@ var clusterOverviewCache struct {
 	data gin.H
 }
 
+// cpuSample menyimpan hasil scrape node_cpu_seconds_total sebelumnya per node,
+// dipakai untuk menghitung delta (usage = 1 - idleDelta/totalDelta) antar request,
+// karena node_cpu_seconds_total adalah counter kumulatif, bukan nilai instan.
+type cpuSample struct {
+	timestamp    time.Time
+	totalSeconds float64
+	idleSeconds  float64
+}
+
+var cpuSampleCache struct {
+	sync.Mutex
+	samples map[string]cpuSample
+}
+
+func nodeExporterPort() int {
+	if v := os.Getenv("NODE_EXPORTER_PORT"); v != "" {
+		if port, err := strconv.Atoi(v); err == nil {
+			return port
+		}
+	}
+	return 9100
+}
+
 func main() {
 	// 1. Inisialisasi K8s Client
-	clientset, restConfig, err := k8s.InitClient()
+	clientset, _, err := k8s.InitClient()
 	if err != nil {
 		log.Fatalf("Gagal terhubung ke Kubernetes: %v", err)
 	}
 
-	// Metrics client (metrics.k8s.io) untuk data CPU/RAM usage real.
-	// Butuh metrics-server terpasang di cluster; jika tidak ada, endpoint
-	// nodes.metrics.k8s.io akan gagal saat dipanggil dan usage dilaporkan "unavailable".
-	metricsClient, err := metricsv.NewForConfig(restConfig)
-	if err != nil {
-		log.Printf("Peringatan: gagal membuat metrics client: %v (usage CPU/RAM tidak akan tersedia)", err)
-	}
+	cpuSampleCache.samples = make(map[string]cpuSample)
 
 	// 2. Setup Gin Router
 	r := gin.Default()
@@ -122,31 +141,13 @@ func main() {
 			}
 		}
 
-		// Ambil usage CPU/RAM real per node dari metrics-server (metrics.k8s.io).
-		// Jika metrics-server tidak terpasang/tidak bisa dihubungi, usage tetap
-		// dilaporkan sebagai tidak tersedia (bukan angka estimasi/palsu).
+		// Ambil usage CPU/RAM real per node langsung dari node_exporter (/proc di host),
+		// bukan dari metrics.k8s.io: kubelet/cAdvisor di cluster ini terbukti tidak
+		// mengisi stats cgroup per-container (lihat investigasi metrics-server),
+		// sementara node_exporter membaca /proc/stat & /proc/meminfo langsung dari
+		// kernel host sehingga tidak terpengaruh masalah tersebut.
 		metricsAvailable := false
-		nodeUsage := map[string]struct {
-			cpuMilli    int64
-			memoryBytes int64
-		}{}
-		if metricsClient != nil {
-			nodeMetricsList, metricsErr := metricsClient.MetricsV1beta1().NodeMetricses().List(requestContext, metav1.ListOptions{})
-			if metricsErr != nil {
-				log.Printf("metrics-server tidak tersedia, usage CPU/RAM tidak bisa diambil: %v", metricsErr)
-			} else {
-				metricsAvailable = true
-				for _, nm := range nodeMetricsList.Items {
-					nodeUsage[nm.Name] = struct {
-						cpuMilli    int64
-						memoryBytes int64
-					}{
-						cpuMilli:    nm.Usage.Cpu().MilliValue(),
-						memoryBytes: nm.Usage.Memory().Value(),
-					}
-				}
-			}
-		}
+		port := nodeExporterPort()
 
 		var nodeList []map[string]interface{}
 		var totalCpuCapacityMilli int64
@@ -200,11 +201,40 @@ func main() {
 				"ip":           nodeIP,
 			}
 
-			if usage, ok := nodeUsage[node.Name]; ok {
-				nodeEntry["cpuUsageMilli"] = usage.cpuMilli
-				nodeEntry["memoryUsageBytes"] = usage.memoryBytes
-				totalCpuUsageMilli += usage.cpuMilli
-				totalMemoryUsageBytes += usage.memoryBytes
+			if nodeIP != "N/A" {
+				snap, fetchErr := nodeexporter.Fetch(nodeIP, port, 3*time.Second)
+				if fetchErr != nil {
+					log.Printf("node-exporter tidak bisa diakses di %s:%d (%s): %v", nodeIP, port, node.Name, fetchErr)
+				} else {
+					metricsAvailable = true
+
+					memoryUsageBytes := int64(snap.MemTotalBytes - snap.MemAvailableBytes)
+					nodeEntry["memoryUsageBytes"] = memoryUsageBytes
+					totalMemoryUsageBytes += memoryUsageBytes
+
+					cpuSampleCache.Lock()
+					prev, hasPrev := cpuSampleCache.samples[node.Name]
+					cpuSampleCache.samples[node.Name] = cpuSample{
+						timestamp:    time.Now(),
+						totalSeconds: snap.CPUTotalSeconds,
+						idleSeconds:  snap.CPUIdleSeconds,
+					}
+					cpuSampleCache.Unlock()
+
+					if hasPrev {
+						totalDelta := snap.CPUTotalSeconds - prev.totalSeconds
+						idleDelta := snap.CPUIdleSeconds - prev.idleSeconds
+						if totalDelta > 0 {
+							usedFraction := 1 - (idleDelta / totalDelta)
+							if usedFraction < 0 {
+								usedFraction = 0
+							}
+							cpuUsageMilli := int64(usedFraction * float64(cpuCapacityMilli))
+							nodeEntry["cpuUsageMilli"] = cpuUsageMilli
+							totalCpuUsageMilli += cpuUsageMilli
+						}
+					}
+				}
 			}
 
 			nodeList = append(nodeList, nodeEntry)

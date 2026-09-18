@@ -6,7 +6,6 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	k8s.io/apimachinery v0.37.0
 	k8s.io/client-go v0.37.0
-	k8s.io/metrics v0.37.0
 )
 
 require (
