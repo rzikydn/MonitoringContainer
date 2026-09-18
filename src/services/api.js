@@ -172,6 +172,7 @@ export async function fetchWorkloadsPods(namespace = 'all') {
       hasLivenessProbe: Boolean(pod.hasLivenessProbe),
       hasReadinessProbe: Boolean(pod.hasReadinessProbe),
       ready: Boolean(pod.ready),
+      containers: pod.containers || [],
     }));
   } catch {
     return [
@@ -388,18 +389,14 @@ export async function fetchTrafficOverview() {
 }
 
 // 5. Fitur 9: Centralized Container Log Streamer
-export async function fetchLiveLogs(podName = 'all') {
-  try {
-    const res = await fetch(`${BASE_URL}/logs?pod=${podName}`);
-    if (!res.ok) throw new Error('API Offline');
-    return await res.json();
-  } catch {
-    return [
-      { id: 1, time: '10:14:10.120', type: 'info', pod: podName, msg: '[SYS] Container stdout listener attached successfully.' },
-      { id: 2, time: '10:14:12.451', type: 'out', pod: podName, msg: '[HTTP] GET /healthz 200 OK - LivenessProbe satisfied.' },
-      { id: 3, time: '10:14:15.002', type: 'info', pod: podName, msg: '[INFO] Worker thread pool processing background jobs.' },
-    ];
-  }
+// Fitur 9: Centralized Log Viewer — streaming asli (SSE) langsung dari Kubernetes
+// API (setara `kubectl logs -f`), bukan polling atau simulasi. Dipakai dengan
+// `new EventSource(buildLogStreamUrl(...))` di komponen, karena EventSource tidak
+// bisa dipakai lewat fetch/async biasa.
+export function buildLogStreamUrl(namespace, pod, container, tailLines = 200) {
+  const params = new URLSearchParams({ namespace, pod, tailLines: String(tailLines) });
+  if (container) params.set('container', container);
+  return `${BASE_URL}/api/workloads/logs?${params.toString()}`;
 }
 
 // 6. Fitur 10: Alert Notifications List

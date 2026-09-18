@@ -287,7 +287,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
                       {restartingPod === pod.name ? 'Restarting...' : 'Restart'}
                     </button>
                     <button
-                      onClick={() => onNavigateToLogs && onNavigateToLogs(pod.name)}
+                      onClick={() => onNavigateToLogs && onNavigateToLogs(pod.namespace, pod.name)}
                       className="btn-dash btn-dash-primary btn-dash-sm"
                       title="Stream Container Live Logs"
                     >

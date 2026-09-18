@@ -119,7 +119,7 @@ export default function DashboardPage({ user, onLogout }) {
   const [activeCluster, setActiveCluster] = useState(CLUSTERS_DATA[0]);
   const [activeTab, setActiveTab] = useState('cluster-overview');
   const [selectedNamespace, setSelectedNamespace] = useState('');
-  const [selectedPodForLogs, setSelectedPodForLogs] = useState('all');
+  const [selectedLogTarget, setSelectedLogTarget] = useState(null);
   const [namespaces, setNamespaces] = useState([]);
 
   const loadNamespaces = () => {
@@ -776,8 +776,8 @@ export default function DashboardPage({ user, onLogout }) {
 
           {activeTab === 'workloads-pods' && (
             <WorkloadsPodsView
-              onNavigateToLogs={(podName) => {
-                setSelectedPodForLogs(podName);
+              onNavigateToLogs={(namespace, name) => {
+                setSelectedLogTarget({ namespace, name });
                 setActiveTab('live-logs');
               }}
             />
@@ -786,7 +786,7 @@ export default function DashboardPage({ user, onLogout }) {
           {activeTab === 'network-ingress' && <NetworkIngressView />}
 
           {activeTab === 'live-logs' && (
-            <LiveLogsView initialPod={selectedPodForLogs} />
+            <LiveLogsView initialTarget={selectedLogTarget} />
           )}
 
           {activeTab === 'alerts-events' && <AlertsEventsView />}

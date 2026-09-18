@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -245,6 +246,11 @@ func main() {
 				}
 			}
 
+			containerNames := make([]string, 0, len(pod.Spec.Containers))
+			for _, container := range pod.Spec.Containers {
+				containerNames = append(containerNames, container.Name)
+			}
+
 			podList = append(podList, map[string]interface{}{
 				"name":              pod.Name,
 				"namespace":         pod.Namespace,
@@ -255,6 +261,7 @@ func main() {
 				"hasLivenessProbe":  hasLivenessProbe,
 				"hasReadinessProbe": hasReadinessProbe,
 				"ready":             ready,
+				"containers":        containerNames,
 			})
 		}
 
@@ -284,6 +291,69 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "pod deleted", "name": name, "namespace": namespace})
+	})
+
+	// Endpoint Live Log Streaming: sumber data untuk Fitur 9 (Centralized Log Viewer).
+	// Streaming asli (SSE) langsung dari Kubernetes API (setara `kubectl logs -f`),
+	// bukan polling atau simulasi — supaya benar-benar "tanpa perlu SSH ke server".
+	r.GET("/api/workloads/logs", func(c *gin.Context) {
+		namespace := c.Query("namespace")
+		podName := c.Query("pod")
+		container := c.Query("container")
+		if namespace == "" || podName == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "namespace dan pod wajib diisi"})
+			return
+		}
+
+		tailLines := int64(200)
+		if v := c.Query("tailLines"); v != "" {
+			if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
+				tailLines = n
+			}
+		}
+
+		logOptions := &corev1.PodLogOptions{
+			Follow:     true,
+			TailLines:  &tailLines,
+			Timestamps: true,
+		}
+		if container != "" {
+			logOptions.Container = container
+		}
+
+		logRequest := clientset.CoreV1().Pods(namespace).GetLogs(podName, logOptions)
+		stream, err := logRequest.Stream(c.Request.Context())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer stream.Close()
+
+		flusher, canFlush := c.Writer.(http.Flusher)
+		if !canFlush {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server tidak mendukung streaming"})
+			return
+		}
+
+		c.Writer.Header().Set("Content-Type", "text/event-stream")
+		c.Writer.Header().Set("Cache-Control", "no-cache")
+		c.Writer.Header().Set("Connection", "keep-alive")
+		c.Writer.Header().Set("X-Accel-Buffering", "no")
+		c.Writer.WriteHeader(http.StatusOK)
+
+		scanner := bufio.NewScanner(stream)
+		scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+		for scanner.Scan() {
+			line := scanner.Text()
+			fmt.Fprintf(c.Writer, "data: %s\n\n", line)
+			flusher.Flush()
+
+			select {
+			case <-c.Request.Context().Done():
+				return
+			default:
+			}
+		}
 	})
 
 	// Endpoint Deployments: sumber "jumlah replica" untuk Fitur 5 (Deployment & Pod Lifecycle).
