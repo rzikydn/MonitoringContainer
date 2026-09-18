@@ -94,7 +94,12 @@ export async function fetchClusterOverview() {
         source: hasPersistentStorage ? 'Persistent volume allocation' : 'No PersistentVolumes found',
       },
       metricsAvailable,
-      podsCapacity: { active: realNodes.length * 12, max: realNodes.length * 50, running: realNodes.length * 12, crash: 0 },
+      podsCapacity: {
+        active: Number(rawData.pods?.total) || 0,
+        max: Number(rawData.pods?.capacity) || 0,
+        running: Number(rawData.pods?.running) || 0,
+        crash: Number(rawData.pods?.crash) || 0,
+      },
       nodes: realNodes
     };
 

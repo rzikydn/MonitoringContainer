@@ -18,6 +18,11 @@ export default function ClusterOverviewView({ onNavigate }) {
 
   if (!clusterData) return <div style={{ padding: '20px', color: '#64748B' }}>Loading Cluster Telemetry...</div>;
 
+  const notReadyNodes = clusterData.nodes.filter((n) => n.status !== 'Ready');
+  const allNodesReady = notReadyNodes.length === 0;
+  const podsMax = clusterData.podsCapacity.max || 0;
+  const podsPercent = podsMax > 0 ? (clusterData.podsCapacity.active / podsMax) * 100 : 0;
+
   return (
     <div className="dashboard-view-container">
       {/* Header */}
@@ -27,8 +32,9 @@ export default function ClusterOverviewView({ onNavigate }) {
           <p>Real-time telemetry and node health across VM 141 & VM 142 (Production)</p>
         </div>
         <div className="view-actions-group">
-          <span className="k8s-badge badge-success">
-            <ShieldCheck style={{ width: '13px', height: '13px' }} /> Failover Quorum OK
+          <span className={`k8s-badge ${allNodesReady ? 'badge-success' : 'badge-danger'}`}>
+            <ShieldCheck style={{ width: '13px', height: '13px' }} />
+            {allNodesReady ? 'Failover Quorum OK' : `${notReadyNodes.length} Node${notReadyNodes.length > 1 ? 's' : ''} Down`}
           </span>
           <button onClick={() => fetchClusterOverview().then(setClusterData)} className="btn-dash btn-dash-secondary btn-dash-sm">
             <RefreshCw style={{ width: '13px', height: '13px' }} /> Sync Metrics
@@ -86,7 +92,7 @@ export default function ClusterOverviewView({ onNavigate }) {
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Pods Capacity</span><Server style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.podsCapacity.active} / {clusterData.podsCapacity.max} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>Pods</span></div>
-          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${(clusterData.podsCapacity.active / clusterData.podsCapacity.max) * 100}%`, backgroundColor: '#F59E0B' }} /></div>
+          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${podsPercent}%`, backgroundColor: '#F59E0B' }} /></div>
           <div className="metric-card-subtext">{clusterData.podsCapacity.running} Running • {clusterData.podsCapacity.crash} CrashLoopBackOff</div>
         </div>
       </div>
@@ -95,7 +101,10 @@ export default function ClusterOverviewView({ onNavigate }) {
       <div className="node-box">
         <div className="node-box-header">
           <div><h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Cluster Nodes & Failover Readiness</h3></div>
-          <span className="k8s-badge badge-success"><CheckCircle2 style={{ width: '13px', height: '13px' }} /> All Nodes Ready</span>
+          <span className={`k8s-badge ${allNodesReady ? 'badge-success' : 'badge-danger'}`}>
+            <CheckCircle2 style={{ width: '13px', height: '13px' }} />
+            {allNodesReady ? 'All Nodes Ready' : `${notReadyNodes.length} Node${notReadyNodes.length > 1 ? 's' : ''} NotReady`}
+          </span>
         </div>
         <div className="nodes-grid">
           {clusterData.nodes.map((node) => (
@@ -109,7 +118,7 @@ export default function ClusterOverviewView({ onNavigate }) {
                   </div>
                   <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '4px', fontFamily: 'monospace' }}>IP: {node.ip}</div>
                 </div>
-                <span className="k8s-badge badge-success"><CheckCircle2 style={{ width: '12px', height: '12px' }} /> {node.status}</span>
+                <span className={`k8s-badge ${node.status === 'Ready' ? 'badge-success' : 'badge-danger'}`}><CheckCircle2 style={{ width: '12px', height: '12px' }} /> {node.status}</span>
               </div>
               <div className="node-specs-row">
                 <div className="node-spec-item"><span className="label">CPU Usage</span><span className="val">{node.cpu}</span></div>

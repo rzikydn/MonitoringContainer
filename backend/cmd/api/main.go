@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s-dashboard-backend/pkg/k8s"
 	"k8s-dashboard-backend/pkg/nodeexporter"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -156,6 +157,7 @@ func main() {
 		var totalMemoryUsageBytes int64
 		var totalEphemeralStorageBytes int64
 		var totalDiskUsedBytes int64
+		var totalPodsAllocatable int64
 		for _, node := range nodes.Items {
 			nodeIP := "N/A"
 			nodeRole := "Worker"
@@ -193,6 +195,7 @@ func main() {
 			totalCpuCapacityMilli += cpuCapacityMilli
 			totalMemoryCapacityBytes += memoryCapacityBytes
 			totalEphemeralStorageBytes += nodeStorageBytes
+			totalPodsAllocatable += node.Status.Allocatable.Pods().Value()
 
 			nodeEntry := map[string]interface{}{
 				"name":         node.Name,
@@ -249,6 +252,27 @@ func main() {
 			nodeList = append(nodeList, nodeEntry)
 		}
 
+		// Pods Capacity: hitung dari pod sungguhan lintas semua namespace,
+		// bukan estimasi jumlahNode*konstanta.
+		var totalPods, runningPods, crashPods int
+		allPods, podsErr := clientset.CoreV1().Pods("").List(requestContext, metav1.ListOptions{})
+		if podsErr != nil {
+			log.Printf("Gagal mengambil daftar Pods: %v", podsErr)
+		} else {
+			totalPods = len(allPods.Items)
+			for _, pod := range allPods.Items {
+				if pod.Status.Phase == corev1.PodRunning {
+					runningPods++
+				}
+				for _, cs := range pod.Status.ContainerStatuses {
+					if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
+						crashPods++
+						break
+					}
+				}
+			}
+		}
+
 		storagePercent := 0.0
 		if totalStorageBytes > 0 {
 			storagePercent = float64(allocatedStorageBytes) / float64(totalStorageBytes) * 100
@@ -293,6 +317,12 @@ func main() {
 				"usedBytes":  allocatedStorageBytes,
 				"totalBytes": totalStorageBytes,
 				"percent":    storagePercent,
+			},
+			"pods": gin.H{
+				"total":    totalPods,
+				"running":  runningPods,
+				"crash":    crashPods,
+				"capacity": totalPodsAllocatable,
 			},
 		}
 
