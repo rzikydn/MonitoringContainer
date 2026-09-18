@@ -138,8 +138,11 @@ export default function DashboardPage({ user, onLogout }) {
   const [showNewNamespaceModal, setShowNewNamespaceModal] = useState(false);
   const [newNsName, setNewNsName] = useState('');
   const [newNsDesc, setNewNsDesc] = useState('');
-  const [newNsCpuQuota, setNewNsCpuQuota] = useState('2.0');
-  const [newNsMemoryQuota, setNewNsMemoryQuota] = useState('4.0');
+  const [newNsCpuRequest, setNewNsCpuRequest] = useState('2.0');
+  const [newNsCpuLimit, setNewNsCpuLimit] = useState('4.0');
+  const [newNsMemoryRequest, setNewNsMemoryRequest] = useState('4.0');
+  const [newNsMemoryLimit, setNewNsMemoryLimit] = useState('8.0');
+  const [newNsPodsQuota, setNewNsPodsQuota] = useState('10');
   const [namespaceActionError, setNamespaceActionError] = useState('');
 
   const userData = {
@@ -156,15 +159,25 @@ export default function DashboardPage({ user, onLogout }) {
     const formattedName = newNsName.trim().toLowerCase().replace(/\s+/g, '-');
     setNamespaceActionError('');
     try {
-      await createNamespace(formattedName, newNsDesc || 'Custom Project', newNsCpuQuota, newNsMemoryQuota);
+      await createNamespace(formattedName, {
+        description: newNsDesc || 'Custom Project',
+        cpuRequest: newNsCpuRequest,
+        cpuLimit: newNsCpuLimit,
+        memoryRequest: newNsMemoryRequest,
+        memoryLimit: newNsMemoryLimit,
+        podsQuota: newNsPodsQuota,
+      });
       loadNamespaces();
       setSelectedNamespace(formattedName);
       setActiveTab('namespace-detail');
       setShowNewNamespaceModal(false);
       setNewNsName('');
       setNewNsDesc('');
-      setNewNsCpuQuota('2.0');
-      setNewNsMemoryQuota('4.0');
+      setNewNsCpuRequest('2.0');
+      setNewNsCpuLimit('4.0');
+      setNewNsMemoryRequest('4.0');
+      setNewNsMemoryLimit('8.0');
+      setNewNsPodsQuota('10');
     } catch (err) {
       setNamespaceActionError(err.message);
     }
@@ -856,11 +869,11 @@ export default function DashboardPage({ user, onLogout }) {
 
               <div className="dash-form-grid">
                 <div className="dash-form-group">
-                  <label className="dash-form-label">Default CPU Quota</label>
+                  <label className="dash-form-label">CPU Request Quota (requests.cpu)</label>
                   <select
                     className="dash-form-select"
-                    value={newNsCpuQuota}
-                    onChange={(e) => setNewNsCpuQuota(e.target.value)}
+                    value={newNsCpuRequest}
+                    onChange={(e) => setNewNsCpuRequest(e.target.value)}
                   >
                     <option value="1.0">1.0 Core</option>
                     <option value="2.0">2.0 Cores (Standard)</option>
@@ -869,17 +882,59 @@ export default function DashboardPage({ user, onLogout }) {
                 </div>
 
                 <div className="dash-form-group">
-                  <label className="dash-form-label">Default RAM Limit</label>
+                  <label className="dash-form-label">CPU Limit Quota (limits.cpu)</label>
                   <select
                     className="dash-form-select"
-                    value={newNsMemoryQuota}
-                    onChange={(e) => setNewNsMemoryQuota(e.target.value)}
+                    value={newNsCpuLimit}
+                    onChange={(e) => setNewNsCpuLimit(e.target.value)}
+                  >
+                    <option value="2.0">2.0 Cores</option>
+                    <option value="4.0">4.0 Cores (Standard)</option>
+                    <option value="8.0">8.0 Cores (High)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="dash-form-grid">
+                <div className="dash-form-group">
+                  <label className="dash-form-label">Memory Request Quota (requests.memory)</label>
+                  <select
+                    className="dash-form-select"
+                    value={newNsMemoryRequest}
+                    onChange={(e) => setNewNsMemoryRequest(e.target.value)}
                   >
                     <option value="2.0">2.0 GB</option>
                     <option value="4.0">4.0 GB (Standard)</option>
                     <option value="8.0">8.0 GB (High)</option>
                   </select>
                 </div>
+
+                <div className="dash-form-group">
+                  <label className="dash-form-label">Memory Limit Quota (limits.memory)</label>
+                  <select
+                    className="dash-form-select"
+                    value={newNsMemoryLimit}
+                    onChange={(e) => setNewNsMemoryLimit(e.target.value)}
+                  >
+                    <option value="4.0">4.0 GB</option>
+                    <option value="8.0">8.0 GB (Standard)</option>
+                    <option value="16.0">16.0 GB (High)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="dash-form-group">
+                <label className="dash-form-label">Max Pods Quota</label>
+                <select
+                  className="dash-form-select"
+                  value={newNsPodsQuota}
+                  onChange={(e) => setNewNsPodsQuota(e.target.value)}
+                >
+                  <option value="5">5 Pods</option>
+                  <option value="10">10 Pods (Standard)</option>
+                  <option value="20">20 Pods (High)</option>
+                  <option value="50">50 Pods</option>
+                </select>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>

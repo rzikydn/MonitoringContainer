@@ -195,20 +195,32 @@ func main() {
 
 	r.POST("/api/v1/namespaces", func(c *gin.Context) {
 		var body struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			CPUQuota    string `json:"cpuQuota"`
-			MemoryQuota string `json:"memoryQuota"`
+			Name          string `json:"name"`
+			Description   string `json:"description"`
+			CPURequest    string `json:"cpuRequest"`
+			CPULimit      string `json:"cpuLimit"`
+			MemoryRequest string `json:"memoryRequest"`
+			MemoryLimit   string `json:"memoryLimit"`
+			PodsQuota     string `json:"podsQuota"`
 		}
 		if err := c.ShouldBindJSON(&body); err != nil || body.Name == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Nama namespace wajib diisi"})
 			return
 		}
-		if body.CPUQuota == "" {
-			body.CPUQuota = "2.0"
+		if body.CPURequest == "" {
+			body.CPURequest = "2.0"
 		}
-		if body.MemoryQuota == "" {
-			body.MemoryQuota = "4.0"
+		if body.CPULimit == "" {
+			body.CPULimit = "4.0"
+		}
+		if body.MemoryRequest == "" {
+			body.MemoryRequest = "4.0"
+		}
+		if body.MemoryLimit == "" {
+			body.MemoryLimit = "8.0"
+		}
+		if body.PodsQuota == "" {
+			body.PodsQuota = "10"
 		}
 
 		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
@@ -234,20 +246,19 @@ func main() {
 		// (default request/limit per container). LimitRange penting karena begitu
 		// ResourceQuota dengan requests.cpu/requests.memory aktif, semua pod baru
 		// WAJIB mencantumkan resource request eksplisit atau ditolak API server.
-		// Penamaan & rasio limit:request (2x) mengikuti template yang sudah dipakai
-		// manual di namespace spending-mgmt (quota-<ns>, limit-<ns>, dst).
+		// Penamaan mengikuti template yang sudah dipakai manual di namespace
+		// spending-mgmt (quota-<ns>, limit-<ns>, dst); semua nilai hard limit-nya
+		// sekarang datang langsung dari pilihan dropdown form, bukan rasio tetap.
 		quotaApplied := true
-		cpuRequestQty, cpuErr := resource.ParseQuantity(body.CPUQuota)
-		memRequestQty, memErr := resource.ParseQuantity(body.MemoryQuota + "Gi")
-		if cpuErr != nil || memErr != nil {
-			log.Printf("Nilai quota tidak valid untuk namespace %s (cpu=%q, memory=%q): cpuErr=%v memErr=%v", body.Name, body.CPUQuota, body.MemoryQuota, cpuErr, memErr)
+		cpuRequestQty, cpuReqErr := resource.ParseQuantity(body.CPURequest)
+		cpuLimitQty, cpuLimErr := resource.ParseQuantity(body.CPULimit)
+		memRequestQty, memReqErr := resource.ParseQuantity(body.MemoryRequest + "Gi")
+		memLimitQty, memLimErr := resource.ParseQuantity(body.MemoryLimit + "Gi")
+		podsQty, podsErr := resource.ParseQuantity(body.PodsQuota)
+		if cpuReqErr != nil || cpuLimErr != nil || memReqErr != nil || memLimErr != nil || podsErr != nil {
+			log.Printf("Nilai quota tidak valid untuk namespace %s: cpuReq=%v cpuLim=%v memReq=%v memLim=%v pods=%v", body.Name, cpuReqErr, cpuLimErr, memReqErr, memLimErr, podsErr)
 			quotaApplied = false
 		} else {
-			cpuLimitQty := cpuRequestQty.DeepCopy()
-			cpuLimitQty.Add(cpuRequestQty)
-			memLimitQty := memRequestQty.DeepCopy()
-			memLimitQty.Add(memRequestQty)
-
 			rq := &corev1.ResourceQuota{
 				ObjectMeta: metav1.ObjectMeta{Name: "quota-" + body.Name},
 				Spec: corev1.ResourceQuotaSpec{
@@ -256,7 +267,7 @@ func main() {
 						corev1.ResourceLimitsCPU:      cpuLimitQty,
 						corev1.ResourceRequestsMemory: memRequestQty,
 						corev1.ResourceLimitsMemory:   memLimitQty,
-						corev1.ResourcePods:           resource.MustParse("10"),
+						corev1.ResourcePods:           podsQty,
 					},
 				},
 			}

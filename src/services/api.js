@@ -200,11 +200,19 @@ export async function fetchNamespaces() {
   }
 }
 
-export async function createNamespace(name, description = '', cpuQuota = '2.0', memoryQuota = '4.0') {
+export async function createNamespace(name, options = {}) {
+  const {
+    description = '',
+    cpuRequest = '2.0',
+    cpuLimit = '4.0',
+    memoryRequest = '4.0',
+    memoryLimit = '8.0',
+    podsQuota = '10',
+  } = options;
   const res = await fetch(`${BASE_URL}/api/v1/namespaces`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, description, cpuQuota, memoryQuota }),
+    body: JSON.stringify({ name, description, cpuRequest, cpuLimit, memoryRequest, memoryLimit, podsQuota }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
