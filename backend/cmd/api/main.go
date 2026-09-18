@@ -156,26 +156,52 @@ func alertWebhookURL() string {
 	return os.Getenv("ALERT_WEBHOOK_URL")
 }
 
-func sendAlertWebhook(item alertItem) {
-	url := alertWebhookURL()
-	if url == "" {
-		return
-	}
+// telegramBotToken/telegramChatID: kredensial bot Telegram, dipakai terpisah dari
+// ALERT_WEBHOOK_URL karena format API Telegram beda (butuh chat_id, bukan cuma
+// text, dan endpoint-nya sudah termasuk token bot-nya).
+func telegramBotToken() string {
+	return os.Getenv("TELEGRAM_BOT_TOKEN")
+}
 
-	payload, err := json.Marshal(gin.H{
-		"text": fmt.Sprintf("[%s] %s\n%s", strings.ToUpper(item.Severity), item.Title, item.Message),
-	})
+func telegramChatID() string {
+	return os.Getenv("TELEGRAM_CHAT_ID")
+}
+
+func postJSON(url string, payload interface{}) error {
+	body, err := json.Marshal(payload)
 	if err != nil {
-		return
+		return err
 	}
-
 	client := http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Post(url, "application/json", bytes.NewReader(payload))
+	resp, err := client.Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
-		log.Printf("Gagal mengirim alert webhook: %v", err)
-		return
+		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// sendAlertWebhook mengirim notifikasi ke semua channel yang sudah dikonfigurasi
+// (webhook generik Slack/Discord/Teams DAN/ATAU Telegram, keduanya independen).
+// Kalau tidak ada satupun yang di-set, tidak mengirim kemana-mana.
+func sendAlertWebhook(item alertItem) {
+	text := fmt.Sprintf("[%s] %s\n%s", strings.ToUpper(item.Severity), item.Title, item.Message)
+
+	if url := alertWebhookURL(); url != "" {
+		if err := postJSON(url, gin.H{"text": text}); err != nil {
+			log.Printf("Gagal mengirim alert webhook: %v", err)
+		}
+	}
+
+	if token, chatID := telegramBotToken(), telegramChatID(); token != "" && chatID != "" {
+		telegramURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token)
+		if err := postJSON(telegramURL, gin.H{"chat_id": chatID, "text": text}); err != nil {
+			log.Printf("Gagal mengirim alert ke Telegram: %v", err)
+		}
+	}
 }
 
 func evaluateAlerts(requestContext context.Context, clientset *kubernetes.Clientset) []alertItem {
@@ -529,7 +555,12 @@ func main() {
 		alertsState.RLock()
 		items := alertsState.items
 		alertsState.RUnlock()
-		c.JSON(http.StatusOK, gin.H{"data": items, "webhookConfigured": alertWebhookURL() != ""})
+		telegramConfigured := telegramBotToken() != "" && telegramChatID() != ""
+		c.JSON(http.StatusOK, gin.H{
+			"data":               items,
+			"webhookConfigured":  alertWebhookURL() != "" || telegramConfigured,
+			"telegramConfigured": telegramConfigured,
+		})
 	})
 
 	r.GET("/api/v1/deployments", func(c *gin.Context) {
