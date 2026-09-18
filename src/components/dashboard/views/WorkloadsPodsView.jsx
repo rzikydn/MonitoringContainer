@@ -11,15 +11,17 @@ import {
   Layers,
   ArrowUpRight,
 } from 'lucide-react';
-import { fetchWorkloadsPods } from '../../../services/api';
+import { fetchWorkloadsPods, fetchNamespaces } from '../../../services/api';
 
 export default function WorkloadsPodsView({ onNavigateToLogs }) {
   const [search, setSearch] = useState('');
   const [filterNamespace, setFilterNamespace] = useState('All');
   const [pods, setPods] = useState([]);
+  const [namespaces, setNamespaces] = useState([]);
 
   useEffect(() => {
     fetchWorkloadsPods().then((data) => setPods(data));
+    fetchNamespaces().then((data) => setNamespaces(data));
   }, []);
 
   const filteredPods = pods.filter((p) => {
@@ -30,6 +32,8 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
       filterNamespace === 'All' || p.namespace === filterNamespace;
     return matchSearch && matchNamespace;
   });
+
+  const crashCount = pods.filter((p) => p.status === 'CrashLoopBackOff').length;
 
   const handleRestart = (podName) => {
     setPods((prev) =>
@@ -52,10 +56,12 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
           </p>
         </div>
         <div className="view-actions-group">
-          <span className="k8s-badge badge-warning">
-            <AlertTriangle style={{ width: '13px', height: '13px' }} />
-            1 CrashLoopBackOff Pod Detected
-          </span>
+          {crashCount > 0 && (
+            <span className="k8s-badge badge-warning">
+              <AlertTriangle style={{ width: '13px', height: '13px' }} />
+              {crashCount} CrashLoopBackOff Pod{crashCount > 1 ? 's' : ''} Detected
+            </span>
+          )}
         </div>
       </div>
 
@@ -101,9 +107,9 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
           style={{ width: '180px' }}
         >
           <option value="All">All Namespaces</option>
-          <option value="asset-mgmt">asset-mgmt (VM 1)</option>
-          <option value="spending-mgmt">spending-mgmt (VM 2)</option>
-          <option value="core-services">core-services</option>
+          {namespaces.map((ns) => (
+            <option key={ns.name} value={ns.name}>{ns.name} ({ns.podCount} pods)</option>
+          ))}
         </select>
       </div>
 

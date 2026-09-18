@@ -139,12 +139,37 @@ export async function fetchClusterEvents() {
 }
 
 
-// 2. Fitur 5 & 6: Deployments & Live Pods Metrics
+function formatAge(isoTime) {
+  if (!isoTime) return 'N/A';
+  const start = new Date(isoTime).getTime();
+  if (Number.isNaN(start)) return 'N/A';
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - start) / 1000));
+  const days = Math.floor(diffSeconds / 86400);
+  const hours = Math.floor((diffSeconds % 86400) / 3600);
+  if (days > 0) return `${days}d ${hours}h`;
+  const minutes = Math.floor((diffSeconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+// Fitur 3: Project/Namespace Grouping — daftar pod real, dikelompokkan per namespace K8s.
+// CPU/Memory per-pod belum tersedia (butuh metrics-server, lihat Fitur 6), ditandai 'N/A'
+// apa adanya alih-alih dikarang.
 export async function fetchWorkloadsPods(namespace = 'all') {
   try {
-    const res = await fetch(`${BASE_URL}/workloads/pods?namespace=${namespace}`);
+    const res = await fetch(`${BASE_URL}/api/workloads/pods?namespace=${encodeURIComponent(namespace)}`);
     if (!res.ok) throw new Error('API Offline');
-    return await res.json();
+    const rawData = await res.json();
+    return (rawData.data || []).map((pod) => ({
+      name: pod.name,
+      namespace: pod.namespace,
+      node: pod.node || 'N/A',
+      status: pod.status,
+      restarts: Number(pod.restarts) || 0,
+      cpu: 'N/A',
+      memory: 'N/A',
+      uptime: formatAge(pod.startTime),
+    }));
   } catch {
     return [
       { name: 'asset-api-deployment-78f94d97f-m1a2b', namespace: 'asset-mgmt', node: 'node-vm-141', status: 'Running', restarts: 0, cpu: '180m', memory: '245 Mi', uptime: '12d 4h' },
@@ -154,6 +179,49 @@ export async function fetchWorkloadsPods(namespace = 'all') {
       { name: 'redis-cache-master-0', namespace: 'core-services', node: 'node-vm-141', status: 'Running', restarts: 0, cpu: '65m', memory: '310 Mi', uptime: '45d 14h' },
     ];
   }
+}
+
+// Fitur 3: Namespace = project. List/create/delete langsung ke Kubernetes API.
+export async function fetchNamespaces() {
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/namespaces`);
+    if (!res.ok) throw new Error('API Offline');
+    const rawData = await res.json();
+    return (rawData.data || []).map((ns) => ({
+      name: ns.name,
+      status: ns.status || 'Unknown',
+      description: ns.description || '',
+      podCount: Number(ns.podCount) || 0,
+      createdAt: ns.createdAt || null,
+    }));
+  } catch (err) {
+    console.error('Gagal mengambil namespaces dari Kubernetes:', err.message);
+    return [];
+  }
+}
+
+export async function createNamespace(name, description = '') {
+  const res = await fetch(`${BASE_URL}/api/v1/namespaces`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Gagal membuat namespace');
+  }
+  return await res.json();
+}
+
+export async function deleteNamespace(name) {
+  const res = await fetch(`${BASE_URL}/api/v1/namespaces/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Gagal menghapus namespace');
+  }
+  return await res.json();
 }
 
 // 3. Fitur 3 & 4: Namespace Project Quotas & Limits

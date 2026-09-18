@@ -70,24 +70,124 @@ func main() {
 		c.Next()
 	})
 
-	// 3. Endpoint Get Pods (Contoh)
+	// 3. Endpoint Get Pods lintas semua namespace (atau satu namespace lewat ?namespace=)
+	// Sumber data untuk Fitur 3 (Project/Namespace Grouping) & Fitur 5 (Pod Lifecycle).
 	r.GET("/api/workloads/pods", func(c *gin.Context) {
-		pods, err := clientset.CoreV1().Pods("default").List(context.TODO(), metav1.ListOptions{})
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		namespace := c.Query("namespace")
+		if namespace == "all" || namespace == "All" {
+			namespace = ""
+		}
+
+		pods, err := clientset.CoreV1().Pods(namespace).List(requestContext, metav1.ListOptions{})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		var podList []map[string]interface{}
+		podList := make([]map[string]interface{}, 0, len(pods.Items))
 		for _, pod := range pods.Items {
+			status := string(pod.Status.Phase)
+			var restarts int32
+			for _, cs := range pod.Status.ContainerStatuses {
+				restarts += cs.RestartCount
+				if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
+					status = "CrashLoopBackOff"
+				}
+			}
+
 			podList = append(podList, map[string]interface{}{
 				"name":      pod.Name,
 				"namespace": pod.Namespace,
-				"status":    pod.Status.Phase,
+				"node":      pod.Spec.NodeName,
+				"status":    status,
+				"restarts":  restarts,
+				"startTime": pod.CreationTimestamp.Time,
 			})
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": podList})
+	})
+
+	// Endpoint Namespaces: sumber data untuk Fitur 3 (Project/Namespace Grouping).
+	// "project baru = namespace baru" — list/create/delete di sini langsung
+	// memanggil Kubernetes API, bukan state lokal di frontend.
+	r.GET("/api/v1/namespaces", func(c *gin.Context) {
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		nsList, err := clientset.CoreV1().Namespaces().List(requestContext, metav1.ListOptions{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		podCountByNamespace := map[string]int{}
+		if podsList, podsErr := clientset.CoreV1().Pods("").List(requestContext, metav1.ListOptions{}); podsErr == nil {
+			for _, pod := range podsList.Items {
+				podCountByNamespace[pod.Namespace]++
+			}
+		}
+
+		nsData := make([]map[string]interface{}, 0, len(nsList.Items))
+		for _, ns := range nsList.Items {
+			nsData = append(nsData, map[string]interface{}{
+				"name":        ns.Name,
+				"status":      string(ns.Status.Phase),
+				"description": ns.Annotations["dashboard.description"],
+				"podCount":    podCountByNamespace[ns.Name],
+				"createdAt":   ns.CreationTimestamp.Time,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": nsData})
+	})
+
+	r.POST("/api/v1/namespaces", func(c *gin.Context) {
+		var body struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil || body.Name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Nama namespace wajib diisi"})
+			return
+		}
+
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: body.Name,
+				Annotations: map[string]string{
+					"dashboard.description": body.Description,
+				},
+			},
+		}
+
+		created, err := clientset.CoreV1().Namespaces().Create(requestContext, ns, metav1.CreateOptions{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{"name": created.Name, "status": string(created.Status.Phase)})
+	})
+
+	r.DELETE("/api/v1/namespaces/:name", func(c *gin.Context) {
+		name := c.Param("name")
+
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		if err := clientset.CoreV1().Namespaces().Delete(requestContext, name, metav1.DeleteOptions{}); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "namespace deleted", "name": name})
 	})
 
 	// Endpoint Events: sumber data untuk Fitur 2 (Node Status & Failover Visibility)

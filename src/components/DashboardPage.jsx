@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './dashboard/sidebar.css';
 
 import {
@@ -91,6 +91,7 @@ import DeployAppView from './dashboard/views/DeployAppView';
 import AppServicesView from './dashboard/views/AppServicesView';
 import NamespaceDetailView from './dashboard/views/NamespaceDetailView';
 import ClusterSettingsView from './dashboard/views/ClusterSettingsView';
+import { fetchNamespaces, createNamespace, deleteNamespace } from '../services/api';
 
 const CLUSTERS_DATA = [
   {
@@ -113,36 +114,31 @@ const CLUSTERS_DATA = [
   },
 ];
 
-const INITIAL_NAMESPACES = [
-  {
-    name: 'asset-mgmt',
-    description: 'Modul VM 1',
-    icon: Folder,
-  },
-  {
-    name: 'spending-mgmt',
-    description: 'Modul VM 2',
-    icon: Folder,
-  },
-  {
-    name: 'core-services',
-    description: 'Cluster Infrastructure',
-    icon: Folder,
-  },
-];
-
 export default function DashboardPage({ user, onLogout }) {
   const isMobile = useIsMobile();
   const [activeCluster, setActiveCluster] = useState(CLUSTERS_DATA[0]);
   const [activeTab, setActiveTab] = useState('cluster-overview');
-  const [selectedNamespace, setSelectedNamespace] = useState('asset-mgmt');
+  const [selectedNamespace, setSelectedNamespace] = useState('');
   const [selectedPodForLogs, setSelectedPodForLogs] = useState('all');
-  const [namespaces, setNamespaces] = useState(INITIAL_NAMESPACES);
+  const [namespaces, setNamespaces] = useState([]);
+
+  const loadNamespaces = () => {
+    fetchNamespaces().then((data) => {
+      const mapped = data.map((ns) => ({ ...ns, icon: Folder }));
+      setNamespaces(mapped);
+      setSelectedNamespace((current) => current || (mapped[0] && mapped[0].name) || '');
+    });
+  };
+
+  useEffect(() => {
+    loadNamespaces();
+  }, []);
 
   // New Namespace Modal State
   const [showNewNamespaceModal, setShowNewNamespaceModal] = useState(false);
   const [newNsName, setNewNsName] = useState('');
   const [newNsDesc, setNewNsDesc] = useState('');
+  const [namespaceActionError, setNamespaceActionError] = useState('');
 
   const userData = {
     name: user?.name || 'Super User',
@@ -152,32 +148,38 @@ export default function DashboardPage({ user, onLogout }) {
     initials: user?.avatar || 'SU',
   };
 
-  const handleCreateNamespace = (e) => {
+  const handleCreateNamespace = async (e) => {
     e.preventDefault();
     if (!newNsName.trim()) return;
     const formattedName = newNsName.trim().toLowerCase().replace(/\s+/g, '-');
-    const newEntry = {
-      name: formattedName,
-      description: newNsDesc || 'Custom Project',
-      icon: Folder,
-    };
-    setNamespaces([...namespaces, newEntry]);
-    setSelectedNamespace(formattedName);
-    setActiveTab('namespace-detail');
-    setShowNewNamespaceModal(false);
-    setNewNsName('');
-    setNewNsDesc('');
+    setNamespaceActionError('');
+    try {
+      await createNamespace(formattedName, newNsDesc || 'Custom Project');
+      loadNamespaces();
+      setSelectedNamespace(formattedName);
+      setActiveTab('namespace-detail');
+      setShowNewNamespaceModal(false);
+      setNewNsName('');
+      setNewNsDesc('');
+    } catch (err) {
+      setNamespaceActionError(err.message);
+    }
   };
 
-  const handleDeleteNamespace = (nsName) => {
+  const handleDeleteNamespace = async (nsName) => {
     if (namespaces.length <= 1) {
       alert('Cluster requires at least one namespace.');
       return;
     }
-    const filtered = namespaces.filter((n) => n.name !== nsName);
-    setNamespaces(filtered);
-    if (selectedNamespace === nsName) {
-      setSelectedNamespace(filtered[0].name);
+    try {
+      await deleteNamespace(nsName);
+      const filtered = namespaces.filter((n) => n.name !== nsName);
+      setNamespaces(filtered);
+      if (selectedNamespace === nsName) {
+        setSelectedNamespace(filtered[0].name);
+      }
+    } catch (err) {
+      alert(`Gagal menghapus namespace: ${err.message}`);
     }
   };
 
@@ -813,6 +815,12 @@ export default function DashboardPage({ user, onLogout }) {
             <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B' }}>
               Segregate projects and assign independent quotas instantly across cluster nodes without provisioning new physical servers.
             </p>
+
+            {namespaceActionError && (
+              <p style={{ margin: 0, fontSize: '0.82rem', color: '#B91C1C', backgroundColor: '#FEF2F2', padding: '8px 10px', borderRadius: '8px' }}>
+                {namespaceActionError}
+              </p>
+            )}
 
             <form onSubmit={handleCreateNamespace} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div className="dash-form-group">

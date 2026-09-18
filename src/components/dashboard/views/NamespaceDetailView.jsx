@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Folder,
   Cpu,
@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
 } from 'lucide-react';
+import { fetchWorkloadsPods } from '../../../services/api';
 
 const NAMESPACE_PROFILES = {
   'asset-mgmt': {
@@ -20,11 +21,6 @@ const NAMESPACE_PROFILES = {
     memory: { used: '5.6', max: '8.0', unit: 'GB', pct: 70 },
     storage: { used: '140', max: '250', unit: 'GB', pct: 56 },
     pods: { used: '14', max: '20', unit: 'Pods', pct: 70 },
-    workloads: [
-      { name: 'asset-api-deployment', replicas: '3/3', status: 'Running', cpu: '180m', ram: '245 MiB' },
-      { name: 'asset-worker-db-sync', replicas: '1/1', status: 'Running', cpu: '95m', ram: '180 MiB' },
-      { name: 'asset-ocr-engine', replicas: '2/2', status: 'Running', cpu: '340m', ram: '620 MiB' },
-    ],
   },
   'spending-mgmt': {
     title: 'spending-mgmt',
@@ -34,11 +30,6 @@ const NAMESPACE_PROFILES = {
     memory: { used: '6.2', max: '8.0', unit: 'GB', pct: 77.5 },
     storage: { used: '180', max: '300', unit: 'GB', pct: 60 },
     pods: { used: '12', max: '16', unit: 'Pods', pct: 75 },
-    workloads: [
-      { name: 'spending-web-frontend', replicas: '2/2', status: 'Running', cpu: '120m', ram: '190 MiB' },
-      { name: 'spending-cron-analyzer', replicas: '0/1', status: 'CrashLoopBackOff', cpu: '15m', ram: '82 MiB' },
-      { name: 'spending-pdf-generator', replicas: '2/2', status: 'Running', cpu: '210m', ram: '410 MiB' },
-    ],
   },
   'core-services': {
     title: 'core-services',
@@ -48,15 +39,16 @@ const NAMESPACE_PROFILES = {
     memory: { used: '12.4', max: '20.0', unit: 'GB', pct: 62 },
     storage: { used: '420', max: '800', unit: 'GB', pct: 52.5 },
     pods: { used: '8', max: '12', unit: 'Pods', pct: 66.7 },
-    workloads: [
-      { name: 'redis-cache-master', replicas: '1/1', status: 'Running', cpu: '65m', ram: '310 MiB' },
-      { name: 'postgres-db-cluster', replicas: '1/1', status: 'Running', cpu: '410m', ram: '1.2 GiB' },
-      { name: 'auth-gateway-svc', replicas: '4/4', status: 'Running', cpu: '150m', ram: '280 MiB' },
-    ],
   },
 };
 
 export default function NamespaceDetailView({ namespaceKey = 'asset-mgmt' }) {
+  const [pods, setPods] = useState([]);
+
+  useEffect(() => {
+    fetchWorkloadsPods(namespaceKey).then((data) => setPods(data));
+  }, [namespaceKey]);
+
   const profile = NAMESPACE_PROFILES[namespaceKey] || {
     title: namespaceKey,
     subtitle: 'Custom Project Namespace',
@@ -65,9 +57,6 @@ export default function NamespaceDetailView({ namespaceKey = 'asset-mgmt' }) {
     memory: { used: '1.0', max: '4.0', unit: 'GB', pct: 25 },
     storage: { used: '20', max: '100', unit: 'GB', pct: 20 },
     pods: { used: '2', max: '10', unit: 'Pods', pct: 20 },
-    workloads: [
-      { name: `${namespaceKey}-base-service`, replicas: '1/1', status: 'Running', cpu: '50m', ram: '120 MiB' }
-    ],
   };
 
   return (
@@ -191,48 +180,56 @@ export default function NamespaceDetailView({ namespaceKey = 'asset-mgmt' }) {
         </div>
       </div>
 
-      {/* Workloads Table in this namespace */}
+      {/* Workloads Table in this namespace — data pod real (Fitur 3: Namespace Grouping) */}
       <div className="node-box">
         <div className="node-box-header">
           <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>
-            Workloads Active in [{profile.title}]
+            Pods Active in [{profile.title}]
           </h3>
-          <span className="k8s-badge badge-info">{profile.workloads.length} Deployments</span>
+          <span className="k8s-badge badge-info">{pods.length} Pods</span>
         </div>
 
         <div className="table-responsive-wrapper">
           <table className="k8s-table">
             <thead>
               <tr>
-                <th>Deployment Name</th>
-                <th>Replicas</th>
+                <th>Pod Name</th>
+                <th>Node</th>
                 <th>Status</th>
-                <th>CPU Used</th>
-                <th>RAM Used</th>
+                <th>Restarts</th>
+                <th>Age</th>
               </tr>
             </thead>
             <tbody>
-              {profile.workloads.map((wl) => (
-                <tr key={wl.name}>
-                  <td style={{ fontWeight: 600, color: '#0F172A' }}>{wl.name}</td>
-                  <td>{wl.replicas}</td>
-                  <td>
-                    {wl.status === 'Running' ? (
-                      <span className="k8s-badge badge-success">
-                        <CheckCircle2 style={{ width: '12px', height: '12px' }} />
-                        Running
-                      </span>
-                    ) : (
-                      <span className="k8s-badge badge-danger">
-                        <AlertTriangle style={{ width: '12px', height: '12px' }} />
-                        {wl.status}
-                      </span>
-                    )}
+              {pods.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ color: '#64748B', textAlign: 'center', padding: '16px' }}>
+                    No pods found in this namespace.
                   </td>
-                  <td style={{ fontFamily: 'monospace' }}>{wl.cpu}</td>
-                  <td style={{ fontFamily: 'monospace' }}>{wl.ram}</td>
                 </tr>
-              ))}
+              ) : (
+                pods.map((pod) => (
+                  <tr key={pod.name}>
+                    <td style={{ fontWeight: 600, color: '#0F172A' }}>{pod.name}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748B' }}>{pod.node}</td>
+                    <td>
+                      {pod.status === 'Running' ? (
+                        <span className="k8s-badge badge-success">
+                          <CheckCircle2 style={{ width: '12px', height: '12px' }} />
+                          Running
+                        </span>
+                      ) : (
+                        <span className="k8s-badge badge-danger">
+                          <AlertTriangle style={{ width: '12px', height: '12px' }} />
+                          {pod.status}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 600, color: pod.restarts > 0 ? '#B91C1C' : '#15803D' }}>{pod.restarts}x</td>
+                    <td style={{ color: '#64748B', fontSize: '0.8rem' }}>{pod.uptime}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
