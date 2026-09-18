@@ -117,6 +117,10 @@ func main() {
 		for _, node := range nodes.Items {
 			nodeIP := "N/A"
 			nodeRole := "Worker"
+			nodeStorageBytes := int64(0)
+			if storageQuantity, exists := node.Status.Capacity["ephemeral-storage"]; exists {
+				nodeStorageBytes = storageQuantity.Value()
+			}
 			if _, isControlPlane := node.Labels["node-role.kubernetes.io/control-plane"]; isControlPlane {
 				nodeRole = "Master"
 			} else if _, isMaster := node.Labels["node-role.kubernetes.io/master"]; isMaster {
@@ -131,11 +135,12 @@ func main() {
 			}
 
 			nodeList = append(nodeList, map[string]interface{}{
-				"name":   node.Name,
-				"role":   nodeRole,
-				"cpu":    node.Status.Capacity.Cpu().String(),
-				"memory": node.Status.Capacity.Memory().String(),
-				"ip":     nodeIP,
+				"name":         node.Name,
+				"role":         nodeRole,
+				"cpu":          node.Status.Capacity.Cpu().String(),
+				"memory":       node.Status.Capacity.Memory().String(),
+				"storageBytes": nodeStorageBytes,
+				"ip":           nodeIP,
 				// Kamu bisa menambahkan logika untuk mengecek kondisi Ready di sini
 			})
 		}

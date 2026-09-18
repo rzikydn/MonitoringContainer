@@ -49,10 +49,10 @@ export default function ClusterOverviewView({ onNavigate }) {
 
         {/* Storage */}
         <div className="metric-stat-card">
-          <div className="metric-card-top"><span className="metric-card-title">Persistent Storage</span><HardDrive style={{ width: '18px', height: '18px' }} /></div>
+          <div className="metric-card-top"><span className="metric-card-title">Cluster Storage</span><HardDrive style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.storage.used} / {clusterData.storage.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.storage.unit}</span></div>
           <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.storage.percent}%`, backgroundColor: '#10B981' }} /></div>
-          <div className="metric-card-subtext"><strong>{clusterData.storage.percent}%</strong> NVMe Storage utilized</div>
+          <div className="metric-card-subtext"><strong>{clusterData.storage.percent}%</strong> {clusterData.storage.source}</div>
         </div>
 
         {/* Pods Count */}

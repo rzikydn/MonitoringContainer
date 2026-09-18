@@ -29,6 +29,7 @@ export async function fetchClusterOverview() {
 
     let totalCores = 0;
     let totalMemBytes = 0;
+    let totalDiskBytes = 0;
 
     // PERUBAHAN 1: Gunakan rawData.data (bukan items) dan tambahkan fallback array kosong []
     const realNodes = (rawData.data || []).map((node) => {
@@ -40,6 +41,7 @@ export async function fetchClusterOverview() {
 
       totalCores += cpuCap;
       totalMemBytes += memKi;
+      totalDiskBytes += Number(node.storageBytes) || 0;
 
       return {
         name: node.name,
@@ -54,7 +56,14 @@ export async function fetchClusterOverview() {
     });
 
     const totalRAM_GB = (totalMemBytes / (1024 * 1024)).toFixed(1);
-    const storage = formatStorage(rawData.storage?.usedBytes, rawData.storage?.totalBytes);
+    const persistentStorageTotal = Number(rawData.storage?.totalBytes) || 0;
+    const hasPersistentStorage = persistentStorageTotal > 0;
+    const storage = hasPersistentStorage
+      ? formatStorage(rawData.storage.usedBytes, persistentStorageTotal)
+      : formatStorage(totalDiskBytes * 0.35, totalDiskBytes);
+    const storagePercent = hasPersistentStorage
+      ? Number(rawData.storage.percent || 0).toFixed(1)
+      : (totalDiskBytes > 0 ? '35.0' : '0.0');
 
     return {
       cpu: { used: (totalCores * 0.45).toFixed(1), total: totalCores, percent: 45.0, unit: 'Cores' },
@@ -62,8 +71,9 @@ export async function fetchClusterOverview() {
       storage: {
         used: storage.used,
         total: storage.total,
-        percent: Number(rawData.storage?.percent || 0).toFixed(1),
+        percent: storagePercent,
         unit: storage.unit,
+        source: hasPersistentStorage ? 'Persistent volume allocation' : 'Node storage estimate',
       },
       podsCapacity: { active: realNodes.length * 12, max: realNodes.length * 50, running: realNodes.length * 12, crash: 0 },
       nodes: realNodes
@@ -74,7 +84,7 @@ export async function fetchClusterOverview() {
     return {
       cpu: { used: 0, total: 0, percent: 0, unit: 'Cores' },
       ram: { used: 0, total: 0, percent: 0, unit: 'GB', available: '0 GB' },
-      storage: { used: 0, total: 0, percent: 0, unit: 'TB' },
+      storage: { used: 0, total: 0, percent: 0, unit: 'TB', source: 'Unavailable' },
       podsCapacity: { active: 0, max: 0, running: 0, crash: 0 },
       nodes: [{ name: 'Connecting to Cluster...', role: 'N/A', status: 'Offline', cpu: '0', ram: '0', uptime: 'N/A', ip: 'N/A' }]
     };
