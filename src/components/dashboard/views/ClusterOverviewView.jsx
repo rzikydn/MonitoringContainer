@@ -7,6 +7,13 @@ export default function ClusterOverviewView({ onNavigate }) {
 
   useEffect(() => {
     fetchClusterOverview().then((data) => setClusterData(data));
+
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 menit
+    const intervalId = setInterval(() => {
+      fetchClusterOverview().then((data) => setClusterData(data));
+    }, REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   if (!clusterData) return <div style={{ padding: '20px', color: '#64748B' }}>Loading Cluster Telemetry...</div>;
