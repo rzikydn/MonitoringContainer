@@ -138,6 +138,8 @@ export default function DashboardPage({ user, onLogout }) {
   const [showNewNamespaceModal, setShowNewNamespaceModal] = useState(false);
   const [newNsName, setNewNsName] = useState('');
   const [newNsDesc, setNewNsDesc] = useState('');
+  const [newNsCpuQuota, setNewNsCpuQuota] = useState('2.0');
+  const [newNsMemoryQuota, setNewNsMemoryQuota] = useState('4.0');
   const [namespaceActionError, setNamespaceActionError] = useState('');
 
   const userData = {
@@ -154,13 +156,15 @@ export default function DashboardPage({ user, onLogout }) {
     const formattedName = newNsName.trim().toLowerCase().replace(/\s+/g, '-');
     setNamespaceActionError('');
     try {
-      await createNamespace(formattedName, newNsDesc || 'Custom Project');
+      await createNamespace(formattedName, newNsDesc || 'Custom Project', newNsCpuQuota, newNsMemoryQuota);
       loadNamespaces();
       setSelectedNamespace(formattedName);
       setActiveTab('namespace-detail');
       setShowNewNamespaceModal(false);
       setNewNsName('');
       setNewNsDesc('');
+      setNewNsCpuQuota('2.0');
+      setNewNsMemoryQuota('4.0');
     } catch (err) {
       setNamespaceActionError(err.message);
     }
@@ -853,7 +857,11 @@ export default function DashboardPage({ user, onLogout }) {
               <div className="dash-form-grid">
                 <div className="dash-form-group">
                   <label className="dash-form-label">Default CPU Quota</label>
-                  <select className="dash-form-select" defaultValue="2.0">
+                  <select
+                    className="dash-form-select"
+                    value={newNsCpuQuota}
+                    onChange={(e) => setNewNsCpuQuota(e.target.value)}
+                  >
                     <option value="1.0">1.0 Core</option>
                     <option value="2.0">2.0 Cores (Standard)</option>
                     <option value="4.0">4.0 Cores (High)</option>
@@ -862,7 +870,11 @@ export default function DashboardPage({ user, onLogout }) {
 
                 <div className="dash-form-group">
                   <label className="dash-form-label">Default RAM Limit</label>
-                  <select className="dash-form-select" defaultValue="4.0">
+                  <select
+                    className="dash-form-select"
+                    value={newNsMemoryQuota}
+                    onChange={(e) => setNewNsMemoryQuota(e.target.value)}
+                  >
                     <option value="2.0">2.0 GB</option>
                     <option value="4.0">4.0 GB (Standard)</option>
                     <option value="8.0">8.0 GB (High)</option>

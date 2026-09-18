@@ -15,6 +15,7 @@ import (
 	"k8s-dashboard-backend/pkg/k8s"
 	"k8s-dashboard-backend/pkg/nodeexporter"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -183,10 +184,18 @@ func main() {
 		var body struct {
 			Name        string `json:"name"`
 			Description string `json:"description"`
+			CPUQuota    string `json:"cpuQuota"`
+			MemoryQuota string `json:"memoryQuota"`
 		}
 		if err := c.ShouldBindJSON(&body); err != nil || body.Name == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Nama namespace wajib diisi"})
 			return
+		}
+		if body.CPUQuota == "" {
+			body.CPUQuota = "2.0"
+		}
+		if body.MemoryQuota == "" {
+			body.MemoryQuota = "4.0"
 		}
 
 		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
@@ -207,7 +216,63 @@ func main() {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"name": created.Name, "status": string(created.Status.Phase)})
+		// Pola "template-tenant": setiap namespace baru langsung dibekali
+		// ResourceQuota (batas agregat CPU/RAM sesuai pilihan form) + LimitRange
+		// (default request/limit per container). LimitRange penting karena begitu
+		// ResourceQuota dengan requests.cpu/requests.memory aktif, semua pod baru
+		// WAJIB mencantumkan resource request eksplisit atau ditolak API server.
+		quotaApplied := true
+		cpuQty, cpuErr := resource.ParseQuantity(body.CPUQuota)
+		memQty, memErr := resource.ParseQuantity(body.MemoryQuota + "Gi")
+		if cpuErr != nil || memErr != nil {
+			log.Printf("Nilai quota tidak valid untuk namespace %s (cpu=%q, memory=%q): cpuErr=%v memErr=%v", body.Name, body.CPUQuota, body.MemoryQuota, cpuErr, memErr)
+			quotaApplied = false
+		} else {
+			rq := &corev1.ResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{Name: "default-quota"},
+				Spec: corev1.ResourceQuotaSpec{
+					Hard: corev1.ResourceList{
+						corev1.ResourceRequestsCPU:    cpuQty,
+						corev1.ResourceLimitsCPU:      cpuQty,
+						corev1.ResourceRequestsMemory: memQty,
+						corev1.ResourceLimitsMemory:   memQty,
+					},
+				},
+			}
+			if _, rqErr := clientset.CoreV1().ResourceQuotas(body.Name).Create(requestContext, rq, metav1.CreateOptions{}); rqErr != nil {
+				log.Printf("Gagal membuat ResourceQuota default untuk namespace %s: %v", body.Name, rqErr)
+				quotaApplied = false
+			}
+
+			lr := &corev1.LimitRange{
+				ObjectMeta: metav1.ObjectMeta{Name: "default-limits"},
+				Spec: corev1.LimitRangeSpec{
+					Limits: []corev1.LimitRangeItem{
+						{
+							Type: corev1.LimitTypeContainer,
+							Default: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("250m"),
+								corev1.ResourceMemory: resource.MustParse("256Mi"),
+							},
+							DefaultRequest: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("100m"),
+								corev1.ResourceMemory: resource.MustParse("128Mi"),
+							},
+						},
+					},
+				},
+			}
+			if _, lrErr := clientset.CoreV1().LimitRanges(body.Name).Create(requestContext, lr, metav1.CreateOptions{}); lrErr != nil {
+				log.Printf("Gagal membuat LimitRange default untuk namespace %s: %v", body.Name, lrErr)
+				quotaApplied = false
+			}
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"name":         created.Name,
+			"status":       string(created.Status.Phase),
+			"quotaApplied": quotaApplied,
+		})
 	})
 
 	// Endpoint Quota: sumber data untuk Fitur 4 (Quota & Limit Monitoring).
