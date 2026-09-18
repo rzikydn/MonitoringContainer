@@ -5,59 +5,62 @@ import {
   Activity,
   HardDrive,
   Boxes,
-  ShieldCheck,
   CheckCircle2,
   AlertTriangle,
-  ArrowUpRight,
 } from 'lucide-react';
-import { fetchWorkloadsPods } from '../../../services/api';
+import { fetchWorkloadsPods, fetchNamespaceQuota } from '../../../services/api';
 
-const NAMESPACE_PROFILES = {
-  'asset-mgmt': {
-    title: 'asset-mgmt',
-    subtitle: 'Modul VM 1 (Asset Tracking, Inventory & OCR Scanners)',
-    nodeAffinity: 'Primary Node: node-vm-141',
-    cpu: { used: '2.8', max: '4.0', unit: 'Cores', pct: 70 },
-    memory: { used: '5.6', max: '8.0', unit: 'GB', pct: 70 },
-    storage: { used: '140', max: '250', unit: 'GB', pct: 56 },
-    pods: { used: '14', max: '20', unit: 'Pods', pct: 70 },
-  },
-  'spending-mgmt': {
-    title: 'spending-mgmt',
-    subtitle: 'Modul VM 2 (Budgeting, Expense Approvals & Batch Billing)',
-    nodeAffinity: 'Primary Node: node-vm-142',
-    cpu: { used: '3.1', max: '4.0', unit: 'Cores', pct: 77.5 },
-    memory: { used: '6.2', max: '8.0', unit: 'GB', pct: 77.5 },
-    storage: { used: '180', max: '300', unit: 'GB', pct: 60 },
-    pods: { used: '12', max: '16', unit: 'Pods', pct: 75 },
-  },
-  'core-services': {
-    title: 'core-services',
-    subtitle: 'Cluster Infrastructure (Auth Gateway, Ingress, Shared DB & Redis)',
-    nodeAffinity: 'Distributed across VM 141 & 142',
-    cpu: { used: '4.2', max: '8.0', unit: 'Cores', pct: 52.5 },
-    memory: { used: '12.4', max: '20.0', unit: 'GB', pct: 62 },
-    storage: { used: '420', max: '800', unit: 'GB', pct: 52.5 },
-    pods: { used: '8', max: '12', unit: 'Pods', pct: 66.7 },
-  },
-};
+function QuotaCard({ title, icon: Icon, data, color, noQuotaHint }) {
+  if (!data) {
+    return (
+      <div className="metric-stat-card">
+        <div className="metric-card-top">
+          <span className="metric-card-title">{title}</span>
+          <div className="metric-card-icon-wrap"><Icon style={{ width: '18px', height: '18px' }} /></div>
+        </div>
+        <div className="metric-card-value">—</div>
+        <div className="metric-card-subtext">Loading...</div>
+      </div>
+    );
+  }
 
-export default function NamespaceDetailView({ namespaceKey = 'asset-mgmt' }) {
+  return (
+    <div className="metric-stat-card">
+      <div className="metric-card-top">
+        <span className="metric-card-title">{title}</span>
+        <div className="metric-card-icon-wrap"><Icon style={{ width: '18px', height: '18px' }} /></div>
+      </div>
+      <div className="metric-card-value">
+        {data.used} {data.hasHard ? `/ ${data.max}` : ''}{' '}
+        <span style={{ fontSize: '0.85rem', color: '#64748B' }}>{data.unit}</span>
+      </div>
+      <div className="metric-progress-track">
+        <div
+          className="metric-progress-fill"
+          style={{
+            width: data.hasHard ? `${data.pct}%` : '0%',
+            backgroundColor: data.hasHard && data.pct > 80 ? '#EF4444' : color,
+          }}
+        />
+      </div>
+      <div className="metric-card-subtext">
+        {data.hasHard
+          ? <><strong>{data.pct}%</strong> quota consumed</>
+          : <span style={{ color: '#B45309' }}>No ResourceQuota configured — {noQuotaHint}</span>}
+      </div>
+    </div>
+  );
+}
+
+export default function NamespaceDetailView({ namespaceKey, namespaceMeta }) {
   const [pods, setPods] = useState([]);
+  const [quota, setQuota] = useState(null);
 
   useEffect(() => {
+    setQuota(null);
     fetchWorkloadsPods(namespaceKey).then((data) => setPods(data));
+    fetchNamespaceQuota(namespaceKey).then((data) => setQuota(data));
   }, [namespaceKey]);
-
-  const profile = NAMESPACE_PROFILES[namespaceKey] || {
-    title: namespaceKey,
-    subtitle: 'Custom Project Namespace',
-    nodeAffinity: 'Cluster Dynamic Allocation',
-    cpu: { used: '0.4', max: '2.0', unit: 'Cores', pct: 20 },
-    memory: { used: '1.0', max: '4.0', unit: 'GB', pct: 25 },
-    storage: { used: '20', max: '100', unit: 'GB', pct: 20 },
-    pods: { used: '2', max: '10', unit: 'Pods', pct: 20 },
-  };
 
   return (
     <div className="dashboard-view-container">
@@ -66,10 +69,14 @@ export default function NamespaceDetailView({ namespaceKey = 'asset-mgmt' }) {
         <div className="view-title-group">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Folder style={{ width: '22px', height: '22px', color: '#284C6E' }} />
-            <h2>Namespace: {profile.title}</h2>
-            <span className="k8s-badge badge-info">{profile.nodeAffinity}</span>
+            <h2>Namespace: {namespaceKey}</h2>
+            {quota && (
+              <span className={`k8s-badge ${quota.hasResourceQuota ? 'badge-success' : 'badge-warning'}`}>
+                {quota.hasResourceQuota ? 'ResourceQuota Active' : 'No ResourceQuota'}
+              </span>
+            )}
           </div>
-          <p>{profile.subtitle}</p>
+          <p>{namespaceMeta?.description || 'Kubernetes Project Namespace'}</p>
         </div>
       </div>
 
@@ -80,103 +87,10 @@ export default function NamespaceDetailView({ namespaceKey = 'asset-mgmt' }) {
         </div>
 
         <div className="metrics-stat-grid">
-          {/* CPU Quota */}
-          <div className="metric-stat-card">
-            <div className="metric-card-top">
-              <span className="metric-card-title">CPU Quota</span>
-              <div className="metric-card-icon-wrap">
-                <Cpu style={{ width: '18px', height: '18px' }} />
-              </div>
-            </div>
-            <div className="metric-card-value">
-              {profile.cpu.used} / {profile.cpu.max}{' '}
-              <span style={{ fontSize: '0.85rem', color: '#64748B' }}>{profile.cpu.unit}</span>
-            </div>
-            <div className="metric-progress-track">
-              <div
-                className="metric-progress-fill"
-                style={{
-                  width: `${profile.cpu.pct}%`,
-                  backgroundColor: profile.cpu.pct > 80 ? '#EF4444' : '#284C6E',
-                }}
-              />
-            </div>
-            <div className="metric-card-subtext">
-              <strong>{profile.cpu.pct}%</strong> limit consumed
-            </div>
-          </div>
-
-          {/* Memory Limit */}
-          <div className="metric-stat-card">
-            <div className="metric-card-top">
-              <span className="metric-card-title">Memory Limit</span>
-              <div className="metric-card-icon-wrap">
-                <Activity style={{ width: '18px', height: '18px' }} />
-              </div>
-            </div>
-            <div className="metric-card-value">
-              {profile.memory.used} / {profile.memory.max}{' '}
-              <span style={{ fontSize: '0.85rem', color: '#64748B' }}>{profile.memory.unit}</span>
-            </div>
-            <div className="metric-progress-track">
-              <div
-                className="metric-progress-fill"
-                style={{
-                  width: `${profile.memory.pct}%`,
-                  backgroundColor: profile.memory.pct > 80 ? '#EF4444' : '#0284C7',
-                }}
-              />
-            </div>
-            <div className="metric-card-subtext">
-              <strong>{profile.memory.pct}%</strong> memory allocated
-            </div>
-          </div>
-
-          {/* Storage PVC */}
-          <div className="metric-stat-card">
-            <div className="metric-card-top">
-              <span className="metric-card-title">Storage PVC</span>
-              <div className="metric-card-icon-wrap">
-                <HardDrive style={{ width: '18px', height: '18px' }} />
-              </div>
-            </div>
-            <div className="metric-card-value">
-              {profile.storage.used} / {profile.storage.max}{' '}
-              <span style={{ fontSize: '0.85rem', color: '#64748B' }}>{profile.storage.unit}</span>
-            </div>
-            <div className="metric-progress-track">
-              <div
-                className="metric-progress-fill"
-                style={{ width: `${profile.storage.pct}%`, backgroundColor: '#10B981' }}
-              />
-            </div>
-            <div className="metric-card-subtext">
-              <strong>{profile.storage.pct}%</strong> volume quota
-            </div>
-          </div>
-
-          {/* Pods Quota */}
-          <div className="metric-stat-card">
-            <div className="metric-card-top">
-              <span className="metric-card-title">Max Pods Quota</span>
-              <div className="metric-card-icon-wrap">
-                <Boxes style={{ width: '18px', height: '18px' }} />
-              </div>
-            </div>
-            <div className="metric-card-value">
-              {profile.pods.used} / {profile.pods.max}{' '}
-              <span style={{ fontSize: '0.85rem', color: '#64748B' }}>{profile.pods.unit}</span>
-            </div>
-            <div className="metric-progress-track">
-              <div
-                className="metric-progress-fill"
-                style={{ width: `${profile.pods.pct}%`, backgroundColor: '#F59E0B' }}
-              />
-            </div>
-            <div className="metric-card-subtext">
-              {profile.pods.used} of {profile.pods.max} active pods in namespace
-            </div>
-          </div>
+          <QuotaCard title="CPU Quota" icon={Cpu} data={quota?.cpu} color="#284C6E" noQuotaHint="showing requested CPU" />
+          <QuotaCard title="Memory Limit" icon={Activity} data={quota?.memory} color="#0284C7" noQuotaHint="showing requested memory" />
+          <QuotaCard title="Storage PVC" icon={HardDrive} data={quota?.storage} color="#10B981" noQuotaHint="showing PVC requested" />
+          <QuotaCard title="Max Pods Quota" icon={Boxes} data={quota?.pods} color="#F59E0B" noQuotaHint="showing current pod count" />
         </div>
       </div>
 
@@ -184,7 +98,7 @@ export default function NamespaceDetailView({ namespaceKey = 'asset-mgmt' }) {
       <div className="node-box">
         <div className="node-box-header">
           <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>
-            Pods Active in [{profile.title}]
+            Pods Active in [{namespaceKey}]
           </h3>
           <span className="k8s-badge badge-info">{pods.length} Pods</span>
         </div>

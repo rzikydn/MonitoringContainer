@@ -46,6 +46,40 @@ func nodeExporterPort() int {
 	return 9100
 }
 
+// firstMilli/firstValue mencari key pertama yang ada di ResourceList (mis. Status.Hard
+// sebuah ResourceQuota) dari beberapa kemungkinan penamaan resource (requests.cpu vs
+// limits.cpu vs cpu), karena cluster berbeda bisa memakai konvensi ResourceQuota berbeda.
+func firstMilli(list corev1.ResourceList, keys ...corev1.ResourceName) (int64, bool) {
+	for _, k := range keys {
+		if q, ok := list[k]; ok {
+			return q.MilliValue(), true
+		}
+	}
+	return 0, false
+}
+
+func firstValue(list corev1.ResourceList, keys ...corev1.ResourceName) (int64, bool) {
+	for _, k := range keys {
+		if q, ok := list[k]; ok {
+			return q.Value(), true
+		}
+	}
+	return 0, false
+}
+
+type quotaResourceSpec struct {
+	label    string
+	hardKeys []corev1.ResourceName
+	useMilli bool
+}
+
+var quotaResourceSpecs = []quotaResourceSpec{
+	{"cpu", []corev1.ResourceName{corev1.ResourceRequestsCPU, corev1.ResourceLimitsCPU, corev1.ResourceCPU}, true},
+	{"memory", []corev1.ResourceName{corev1.ResourceRequestsMemory, corev1.ResourceLimitsMemory, corev1.ResourceMemory}, false},
+	{"storage", []corev1.ResourceName{corev1.ResourceRequestsStorage}, false},
+	{"pods", []corev1.ResourceName{corev1.ResourcePods}, false},
+}
+
 func main() {
 	// 1. Inisialisasi K8s Client
 	clientset, _, err := k8s.InitClient()
@@ -174,6 +208,104 @@ func main() {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{"name": created.Name, "status": string(created.Status.Phase)})
+	})
+
+	// Endpoint Quota: sumber data untuk Fitur 4 (Quota & Limit Monitoring).
+	// Pakai ResourceQuota asli kalau namespace punya satu (untuk batas/"hard"),
+	// dan selalu hitung actual usage real dari request container pod + PVC di
+	// namespace itu (bukan angka rekaan), supaya tetap informatif meski
+	// namespace belum diberi ResourceQuota sama sekali.
+	r.GET("/api/v1/namespaces/:name/quota", func(c *gin.Context) {
+		name := c.Param("name")
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		rqList, rqErr := clientset.CoreV1().ResourceQuotas(name).List(requestContext, metav1.ListOptions{})
+		hasResourceQuota := rqErr == nil && len(rqList.Items) > 0
+
+		hard := map[string]int64{}
+		hasHard := map[string]bool{}
+		if hasResourceQuota {
+			for _, rq := range rqList.Items {
+				for _, spec := range quotaResourceSpecs {
+					if hasHard[spec.label] {
+						continue
+					}
+					var v int64
+					var ok bool
+					if spec.useMilli {
+						v, ok = firstMilli(rq.Status.Hard, spec.hardKeys...)
+					} else {
+						v, ok = firstValue(rq.Status.Hard, spec.hardKeys...)
+					}
+					if ok {
+						hard[spec.label] = v
+						hasHard[spec.label] = true
+					}
+				}
+			}
+		}
+
+		var actualPodCount int
+		var actualCPURequestMilli, actualMemoryRequestBytes int64
+		if podsList, podsErr := clientset.CoreV1().Pods(name).List(requestContext, metav1.ListOptions{}); podsErr == nil {
+			actualPodCount = len(podsList.Items)
+			for _, pod := range podsList.Items {
+				for _, container := range pod.Spec.Containers {
+					if q, ok := container.Resources.Requests[corev1.ResourceCPU]; ok {
+						actualCPURequestMilli += q.MilliValue()
+					}
+					if q, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
+						actualMemoryRequestBytes += q.Value()
+					}
+				}
+			}
+		}
+
+		var actualStorageBytes int64
+		if pvcList, pvcErr := clientset.CoreV1().PersistentVolumeClaims(name).List(requestContext, metav1.ListOptions{}); pvcErr == nil {
+			for _, pvc := range pvcList.Items {
+				if q, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok {
+					actualStorageBytes += q.Value()
+				}
+			}
+		}
+
+		percent := func(used, hardVal int64, has bool) float64 {
+			if !has || hardVal <= 0 {
+				return 0
+			}
+			return float64(used) / float64(hardVal) * 100
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"namespace":        name,
+			"hasResourceQuota": hasResourceQuota,
+			"cpu": gin.H{
+				"usedMilli": actualCPURequestMilli,
+				"hardMilli": hard["cpu"],
+				"hasHard":   hasHard["cpu"],
+				"percent":   percent(actualCPURequestMilli, hard["cpu"], hasHard["cpu"]),
+			},
+			"memory": gin.H{
+				"usedBytes": actualMemoryRequestBytes,
+				"hardBytes": hard["memory"],
+				"hasHard":   hasHard["memory"],
+				"percent":   percent(actualMemoryRequestBytes, hard["memory"], hasHard["memory"]),
+			},
+			"storage": gin.H{
+				"usedBytes": actualStorageBytes,
+				"hardBytes": hard["storage"],
+				"hasHard":   hasHard["storage"],
+				"percent":   percent(actualStorageBytes, hard["storage"], hasHard["storage"]),
+			},
+			"pods": gin.H{
+				"used":    actualPodCount,
+				"hard":    hard["pods"],
+				"hasHard": hasHard["pods"],
+				"percent": percent(int64(actualPodCount), hard["pods"], hasHard["pods"]),
+			},
+		})
 	})
 
 	r.DELETE("/api/v1/namespaces/:name", func(c *gin.Context) {

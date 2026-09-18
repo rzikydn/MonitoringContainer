@@ -225,19 +225,39 @@ export async function deleteNamespace(name) {
 }
 
 // 3. Fitur 3 & 4: Namespace Project Quotas & Limits
-export async function fetchNamespaceQuota(namespaceKey = 'asset-mgmt') {
+// Fitur 4: Quota & Limit Monitoring — pakai ResourceQuota asli kalau namespace
+// punya satu (untuk batas/"hard"), used selalu dihitung real dari request
+// container pod + PVC (bukan dikarang) supaya tetap informatif walau namespace
+// belum diberi ResourceQuota.
+export async function fetchNamespaceQuota(namespaceKey) {
   try {
-    const res = await fetch(`${BASE_URL}/namespaces/${namespaceKey}/quota`);
+    const res = await fetch(`${BASE_URL}/api/v1/namespaces/${encodeURIComponent(namespaceKey)}/quota`);
     if (!res.ok) throw new Error('API Offline');
-    return await res.json();
-  } catch {
-    return {
-      name: namespaceKey,
-      cpuQuota: { used: '4.2 Cores', limit: '8.0 Cores', percent: 52.5 },
-      memoryQuota: { used: '12.4 GB', limit: '24.0 GB', percent: 51.6 },
-      podsCount: { used: 12, limit: 20, percent: 60.0 },
-      servicesCount: { used: 5, limit: 10, percent: 50.0 },
+    const raw = await res.json();
+
+    const buildResource = (data, divisor, unit) => {
+      const used = (Number(data?.usedMilli ?? data?.usedBytes ?? data?.used) || 0) / divisor;
+      const hasHard = Boolean(data?.hasHard);
+      const hard = hasHard ? (Number(data?.hardMilli ?? data?.hardBytes ?? data?.hard) || 0) / divisor : null;
+      return {
+        used: unit === 'Pods' ? used : used.toFixed(2),
+        max: hard === null ? null : (unit === 'Pods' ? hard : hard.toFixed(1)),
+        unit,
+        pct: Number(data?.percent || 0).toFixed(1),
+        hasHard,
+      };
     };
+
+    return {
+      hasResourceQuota: Boolean(raw.hasResourceQuota),
+      cpu: buildResource(raw.cpu, 1000, 'Cores'),
+      memory: buildResource(raw.memory, 1024 ** 3, 'GB'),
+      storage: buildResource(raw.storage, 1024 ** 3, 'GB'),
+      pods: buildResource(raw.pods, 1, 'Pods'),
+    };
+  } catch (err) {
+    console.error('Gagal mengambil quota namespace dari Kubernetes:', err.message);
+    return null;
   }
 }
 

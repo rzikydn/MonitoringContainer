@@ -785,7 +785,10 @@ export default function DashboardPage({ user, onLogout }) {
           {activeTab === 'app-services' && <AppServicesView />}
 
           {activeTab === 'namespace-detail' && (
-            <NamespaceDetailView namespaceKey={selectedNamespace} />
+            <NamespaceDetailView
+              namespaceKey={selectedNamespace}
+              namespaceMeta={namespaces.find((n) => n.name === selectedNamespace)}
+            />
           )}
 
           {activeTab === 'cluster-settings' && <ClusterSettingsView />}
