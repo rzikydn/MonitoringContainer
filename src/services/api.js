@@ -217,6 +217,29 @@ export async function fetchDeployments(namespace = 'all') {
   }
 }
 
+// Fitur 6: Live Container Metrics — CPU/RAM per pod, langsung dari kubelet tiap
+// node (lihat kubeletmetrics di backend). CPU baru terisi mulai polling kedua
+// (butuh delta dua sampel), sama seperti CPU usage node di Fitur 1.
+export async function fetchPodMetrics(namespace = 'all') {
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/pods/metrics?namespace=${encodeURIComponent(namespace)}`);
+    if (!res.ok) throw new Error('API Offline');
+    const rawData = await res.json();
+    const metricsAvailable = Boolean(rawData.metricsAvailable);
+    const byKey = {};
+    for (const m of rawData.data || []) {
+      byKey[`${m.namespace}/${m.pod}`] = {
+        cpuMilli: Number(m.cpuMilli) || 0,
+        memoryBytes: Number(m.memoryBytes) || 0,
+      };
+    }
+    return { metricsAvailable, byKey };
+  } catch (err) {
+    console.error('Gagal mengambil pod metrics dari Kubernetes:', err.message);
+    return { metricsAvailable: false, byKey: {} };
+  }
+}
+
 // Fitur 3: Namespace = project. List/create/delete langsung ke Kubernetes API.
 export async function fetchNamespaces() {
   try {

@@ -8,17 +8,21 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"k8s-dashboard-backend/pkg/k8s"
+	"k8s-dashboard-backend/pkg/kubeletmetrics"
 	"k8s-dashboard-backend/pkg/nodeexporter"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 var clusterOverviewCache struct {
@@ -40,6 +44,19 @@ var cpuSampleCache struct {
 	samples map[string]cpuSample
 }
 
+// containerCPUSampleCache: sama seperti cpuSampleCache tapi per-container
+// (key: "namespace/pod/container"), dipakai untuk hitung delta CPU usage
+// per pod di Fitur 6 (Live Container Metrics).
+type containerCPUSample struct {
+	timestamp  time.Time
+	cpuSeconds float64
+}
+
+var containerCPUSampleCache struct {
+	sync.Mutex
+	samples map[string]containerCPUSample
+}
+
 func nodeExporterPort() int {
 	if v := os.Getenv("NODE_EXPORTER_PORT"); v != "" {
 		if port, err := strconv.Atoi(v); err == nil {
@@ -47,6 +64,37 @@ func nodeExporterPort() int {
 		}
 	}
 	return 9100
+}
+
+// kubeletTokenCache menyimpan token ServiceAccount "metrics-server" (sudah ada di
+// cluster dengan RBAC nodes/metrics) yang dipakai untuk autentikasi langsung ke
+// kubelet tiap node. Dibuat lewat TokenRequest API dan di-cache di memory supaya
+// tidak mint token baru di setiap request dashboard.
+var kubeletTokenCache struct {
+	sync.Mutex
+	token  string
+	expiry time.Time
+}
+
+func kubeletToken(ctx context.Context, clientset *kubernetes.Clientset) (string, error) {
+	kubeletTokenCache.Lock()
+	defer kubeletTokenCache.Unlock()
+
+	if kubeletTokenCache.token != "" && time.Now().Before(kubeletTokenCache.expiry) {
+		return kubeletTokenCache.token, nil
+	}
+
+	expirationSeconds := int64(3600)
+	tr, err := clientset.CoreV1().ServiceAccounts("kube-system").CreateToken(ctx, "metrics-server", &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{ExpirationSeconds: &expirationSeconds},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	kubeletTokenCache.token = tr.Status.Token
+	kubeletTokenCache.expiry = tr.Status.ExpirationTimestamp.Time.Add(-5 * time.Minute)
+	return kubeletTokenCache.token, nil
 }
 
 // ingressControllerNamespace: namespace tempat ingress controller berjalan, dipakai
@@ -102,6 +150,7 @@ func main() {
 	}
 
 	cpuSampleCache.samples = make(map[string]cpuSample)
+	containerCPUSampleCache.samples = make(map[string]containerCPUSample)
 
 	// 2. Setup Gin Router
 	r := gin.Default()
@@ -225,6 +274,104 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"data": deployList})
+	})
+
+	// Endpoint Live Container Metrics: sumber data untuk Fitur 6.
+	// Query langsung ke /metrics/resource tiap kubelet (bukan lewat metrics.k8s.io,
+	// yang tidak pernah bisa diakses karena Service metrics-server tak pernah Ready)
+	// pakai token ServiceAccount "metrics-server" yang sudah ada RBAC-nya.
+	r.GET("/api/v1/pods/metrics", func(c *gin.Context) {
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		namespaceFilter := c.Query("namespace")
+		if namespaceFilter == "all" || namespaceFilter == "All" {
+			namespaceFilter = ""
+		}
+
+		token, tokenErr := kubeletToken(requestContext, clientset)
+		if tokenErr != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": tokenErr.Error(), "metricsAvailable": false})
+			return
+		}
+
+		nodes, nodesErr := clientset.CoreV1().Nodes().List(requestContext, metav1.ListOptions{})
+		if nodesErr != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": nodesErr.Error(), "metricsAvailable": false})
+			return
+		}
+
+		var allSamples []kubeletmetrics.ContainerSample
+		metricsAvailable := false
+		for _, node := range nodes.Items {
+			nodeIP := ""
+			for _, address := range node.Status.Addresses {
+				if address.Type == "InternalIP" {
+					nodeIP = address.Address
+					break
+				}
+			}
+			if nodeIP == "" {
+				continue
+			}
+
+			samples, fetchErr := kubeletmetrics.Fetch(nodeIP, token, 3*time.Second)
+			if fetchErr != nil {
+				log.Printf("Gagal mengambil pod metrics dari kubelet %s (%s): %v", nodeIP, node.Name, fetchErr)
+				continue
+			}
+			metricsAvailable = true
+			allSamples = append(allSamples, samples...)
+		}
+
+		// Agregasi per pod (jumlah semua container di dalamnya), plus hitung delta
+		// CPU per container terhadap sampel sebelumnya (counter kumulatif).
+		type podUsage struct {
+			cpuMilli    int64
+			memoryBytes int64
+		}
+		usageByPod := map[string]podUsage{}
+
+		containerCPUSampleCache.Lock()
+		now := time.Now()
+		for _, s := range allSamples {
+			if namespaceFilter != "" && s.Namespace != namespaceFilter {
+				continue
+			}
+
+			key := s.Namespace + "/" + s.Pod + "/" + s.Container
+			prev, hasPrev := containerCPUSampleCache.samples[key]
+			containerCPUSampleCache.samples[key] = containerCPUSample{timestamp: now, cpuSeconds: s.CPUSeconds}
+
+			podKey := s.Namespace + "/" + s.Pod
+			u := usageByPod[podKey]
+			u.memoryBytes += int64(s.MemoryBytes)
+			if hasPrev {
+				elapsedSeconds := now.Sub(prev.timestamp).Seconds()
+				if elapsedSeconds > 0 {
+					cpuDelta := s.CPUSeconds - prev.cpuSeconds
+					if cpuDelta < 0 {
+						cpuDelta = 0
+					}
+					u.cpuMilli += int64((cpuDelta / elapsedSeconds) * 1000)
+				}
+			}
+			usageByPod[podKey] = u
+		}
+		containerCPUSampleCache.Unlock()
+
+		podList := make([]map[string]interface{}, 0, len(usageByPod))
+		for podKey, u := range usageByPod {
+			parts := strings.SplitN(podKey, "/", 2)
+			podList = append(podList, map[string]interface{}{
+				"namespace":   parts[0],
+				"pod":         parts[1],
+				"cpuMilli":    u.cpuMilli,
+				"memoryBytes": u.memoryBytes,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": podList, "metricsAvailable": metricsAvailable})
 	})
 
 	// Endpoint Namespaces: sumber data untuk Fitur 3 (Project/Namespace Grouping).

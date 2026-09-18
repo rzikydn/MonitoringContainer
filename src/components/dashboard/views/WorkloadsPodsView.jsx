@@ -11,7 +11,7 @@ import {
   Layers,
   ArrowUpRight,
 } from 'lucide-react';
-import { fetchWorkloadsPods, fetchNamespaces, fetchDeployments, restartPod } from '../../../services/api';
+import { fetchWorkloadsPods, fetchNamespaces, fetchDeployments, restartPod, fetchPodMetrics } from '../../../services/api';
 
 const POD_STATUS_STYLE = {
   Running: 'badge-success',
@@ -28,6 +28,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
   const [deployments, setDeployments] = useState([]);
   const [namespaces, setNamespaces] = useState([]);
   const [restartingPod, setRestartingPod] = useState(null);
+  const [podMetrics, setPodMetrics] = useState({ metricsAvailable: false, byKey: {} });
 
   const loadPods = () => fetchWorkloadsPods().then((data) => setPods(data));
 
@@ -35,6 +36,12 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
     loadPods();
     fetchDeployments().then((data) => setDeployments(data));
     fetchNamespaces().then((data) => setNamespaces(data));
+
+    const loadMetrics = () => fetchPodMetrics().then((data) => setPodMetrics(data));
+    loadMetrics();
+    const METRICS_REFRESH_MS = 15 * 1000; // "live" — polling lebih sering dari cluster overview
+    const intervalId = setInterval(loadMetrics, METRICS_REFRESH_MS);
+    return () => clearInterval(intervalId);
   }, []);
 
   const filteredPods = pods.filter((p) => {
@@ -196,7 +203,11 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
             </tr>
           </thead>
           <tbody>
-            {filteredPods.map((pod) => (
+            {filteredPods.map((pod) => {
+              const metric = podMetrics.byKey[`${pod.namespace}/${pod.name}`];
+              const cpuDisplay = podMetrics.metricsAvailable && metric ? `${(metric.cpuMilli / 1000).toFixed(2)} Cores` : 'N/A';
+              const memoryDisplay = podMetrics.metricsAvailable && metric ? `${(metric.memoryBytes / (1024 ** 2)).toFixed(0)} Mi` : 'N/A';
+              return (
               <tr key={pod.name}>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -233,14 +244,14 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0F172A' }}>
-                      {pod.cpu}
+                      {cpuDisplay}
                     </span>
                   </div>
                 </td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0F172A' }}>
-                      {pod.memory}
+                      {memoryDisplay}
                     </span>
                   </div>
                 </td>
@@ -267,7 +278,8 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
