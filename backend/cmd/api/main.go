@@ -374,6 +374,125 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"data": podList, "metricsAvailable": metricsAvailable})
 	})
 
+	// Endpoint Network Overview: sumber data untuk Fitur 7 (Service & Ingress Overview).
+	// Status "Healthy"/"No Endpoints" dihitung dari Endpoints asli (bukan ditebak),
+	// dan status TLS Ingress dari Spec.TLS asli.
+	r.GET("/api/v1/network/overview", func(c *gin.Context) {
+		requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		services, svcErr := clientset.CoreV1().Services("").List(requestContext, metav1.ListOptions{})
+		if svcErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": svcErr.Error()})
+			return
+		}
+
+		endpointsByKey := map[string]corev1.Endpoints{}
+		if endpointsList, epErr := clientset.CoreV1().Endpoints("").List(requestContext, metav1.ListOptions{}); epErr != nil {
+			log.Printf("Gagal mengambil Endpoints: %v", epErr)
+		} else {
+			for _, ep := range endpointsList.Items {
+				endpointsByKey[ep.Namespace+"/"+ep.Name] = ep
+			}
+		}
+
+		svcData := make([]map[string]interface{}, 0, len(services.Items))
+		for _, svc := range services.Items {
+			var portStrs []string
+			for _, p := range svc.Spec.Ports {
+				if svc.Spec.Type == corev1.ServiceTypeNodePort && p.NodePort != 0 {
+					portStrs = append(portStrs, fmt.Sprintf("%d:%d/%s", p.Port, p.NodePort, p.Protocol))
+				} else {
+					portStrs = append(portStrs, fmt.Sprintf("%d/%s", p.Port, p.Protocol))
+				}
+			}
+
+			readyCount, totalCount := 0, 0
+			targetPod := ""
+			if ep, ok := endpointsByKey[svc.Namespace+"/"+svc.Name]; ok {
+				for _, subset := range ep.Subsets {
+					readyCount += len(subset.Addresses)
+					totalCount += len(subset.Addresses) + len(subset.NotReadyAddresses)
+					if targetPod == "" && len(subset.Addresses) > 0 && subset.Addresses[0].TargetRef != nil {
+						targetPod = subset.Addresses[0].TargetRef.Name
+					}
+				}
+			}
+
+			status := "No Endpoints"
+			if readyCount > 0 {
+				status = "Healthy"
+			}
+
+			clusterIP := svc.Spec.ClusterIP
+			if clusterIP == "" {
+				clusterIP = "None"
+			}
+
+			svcData = append(svcData, map[string]interface{}{
+				"name":           svc.Name,
+				"namespace":      svc.Namespace,
+				"type":           string(svc.Spec.Type),
+				"clusterIP":      clusterIP,
+				"ports":          strings.Join(portStrs, ", "),
+				"targetPod":      targetPod,
+				"endpointsReady": readyCount,
+				"endpointsTotal": totalCount,
+				"status":         status,
+			})
+		}
+
+		var ingData []map[string]interface{}
+		ingresses, ingErr := clientset.NetworkingV1().Ingresses("").List(requestContext, metav1.ListOptions{})
+		if ingErr != nil {
+			log.Printf("Gagal mengambil Ingress: %v", ingErr)
+		} else {
+			tlsHostSet := map[string]bool{}
+			for _, ing := range ingresses.Items {
+				for _, tls := range ing.Spec.TLS {
+					for _, h := range tls.Hosts {
+						tlsHostSet[h] = true
+					}
+				}
+			}
+
+			for _, ing := range ingresses.Items {
+				for _, rule := range ing.Spec.Rules {
+					if rule.HTTP == nil {
+						continue
+					}
+					for _, path := range rule.HTTP.Paths {
+						backendService := ""
+						if path.Backend.Service != nil {
+							portDesc := ""
+							if path.Backend.Service.Port.Number != 0 {
+								portDesc = fmt.Sprintf(":%d", path.Backend.Service.Port.Number)
+							} else if path.Backend.Service.Port.Name != "" {
+								portDesc = ":" + path.Backend.Service.Port.Name
+							}
+							backendService = path.Backend.Service.Name + portDesc
+						}
+
+						pathStr := path.Path
+						if pathStr == "" {
+							pathStr = "/"
+						}
+
+						ingData = append(ingData, map[string]interface{}{
+							"namespace": ing.Namespace,
+							"host":      rule.Host,
+							"path":      pathStr,
+							"service":   backendService,
+							"tls":       tlsHostSet[rule.Host],
+						})
+					}
+				}
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"services": svcData, "ingress": ingData})
+	})
+
 	// Endpoint Namespaces: sumber data untuk Fitur 3 (Project/Namespace Grouping).
 	// "project baru = namespace baru" — list/create/delete di sini langsung
 	// memanggil Kubernetes API, bukan state lokal di frontend.

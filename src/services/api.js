@@ -329,23 +329,36 @@ export async function fetchNamespaceQuota(namespaceKey) {
 }
 
 // 4. Fitur 7 & 8: Services, Ingress & Traffic Health Check
+// Fitur 7: Service & Ingress Overview — data real Service/Endpoints/Ingress.
+// Traffic rate/latency/HTTP error (request-level) sengaja tidak ada di sini,
+// itu ranah Fitur 8 (butuh probing HTTP asli, belum ada mekanismenya).
 export async function fetchNetworkIngress() {
   try {
-    const res = await fetch(`${BASE_URL}/network/overview`);
+    const res = await fetch(`${BASE_URL}/api/v1/network/overview`);
     if (!res.ok) throw new Error('API Offline');
-    return await res.json();
-  } catch {
+    const rawData = await res.json();
     return {
-      services: [
-        { name: 'asset-api-svc', type: 'ClusterIP', port: '8080/TCP', targetPod: 'asset-api-78f9', status: 'Healthy', liveness: 'HTTP 200 OK' },
-        { name: 'spending-web-svc', type: 'NodePort', port: '80:30080/TCP', targetPod: 'spending-web-6b45', status: 'Healthy', liveness: 'HTTP 200 OK' },
-      ],
-      ingress: [
-        { host: 'api.bsmr.internal', path: '/v1/assets', service: 'asset-api-svc:8080', tls: 'Enabled (Let\'s Encrypt)' },
-        { host: 'app.bsmr.internal', path: '/', service: 'spending-web-svc:80', tls: 'Enabled (Let\'s Encrypt)' },
-      ],
-      traffic: { requestRate: '1,240 req/min', latency: '24ms (p95)', errorRate: '0.02% (4xx/5xx)' }
+      services: (rawData.services || []).map((svc) => ({
+        name: svc.name,
+        namespace: svc.namespace,
+        type: svc.type,
+        clusterIp: svc.clusterIP,
+        port: svc.ports || 'N/A',
+        targetPod: svc.targetPod || 'N/A',
+        endpoints: `${svc.endpointsReady ?? 0}/${svc.endpointsTotal ?? 0} Endpoints Ready`,
+        status: svc.status,
+      })),
+      ingress: (rawData.ingress || []).map((ing) => ({
+        namespace: ing.namespace,
+        host: ing.host || '*',
+        path: ing.path || '/',
+        service: ing.service || 'N/A',
+        tls: ing.tls ? 'TLS Enabled' : 'TLS Disabled',
+      })),
     };
+  } catch (err) {
+    console.error('Gagal mengambil network overview dari Kubernetes:', err.message);
+    return { services: [], ingress: [] };
   }
 }
 
