@@ -1,66 +1,69 @@
 const BASE_URL = '/k8s';
 
+function formatStorage(usedBytes, totalBytes) {
+  const units = [
+    { label: 'TB', value: 1024 ** 4 },
+    { label: 'GB', value: 1024 ** 3 },
+    { label: 'MB', value: 1024 ** 2 },
+  ];
+  const used = Number(usedBytes) || 0;
+  const total = Number(totalBytes) || 0;
+  const unit = units.find(({ value }) => total >= value) || units[0];
+
+  return {
+    used: (used / unit.value).toFixed(1),
+    total: (total / unit.value).toFixed(1),
+    unit: unit.label,
+  };
+}
+
 
 // 1. Fitur 1 & 2: Agregasi Kapasitas Cluster & Status Failover Node
 // 1. Fitur 1 & 2: Membaca Data Real dari kubectl proxy (Port 8001)
+// 1. Fitur 1 & 2: Agregasi Kapasitas Cluster & Status Failover Node
 export async function fetchClusterOverview() {
   try {
-    // 1. Panggil API Node Kubernetes asli
     const res = await fetch(`${BASE_URL}/api/v1/nodes`);
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     const rawData = await res.json();
 
-    // 2. Ekstrak & Jumlahkan CPU, RAM, dan STORAGE asli dari seluruh node
     let totalCores = 0;
     let totalMemBytes = 0;
-    let totalDiskBytes = 0;
 
-    const realNodes = rawData.items.map((node) => {
-      const isReady = node.status.conditions?.find((c) => c.type === 'Ready')?.status === 'True';
-      const cpuCap = parseInt(node.status.capacity?.cpu || '0', 10);
+    // PERUBAHAN 1: Gunakan rawData.data (bukan items) dan tambahkan fallback array kosong []
+    const realNodes = (rawData.data || []).map((node) => {
 
-      // Ambil RAM asli (KiB)
-      const memKi = parseInt(node.status.capacity?.memory || '0', 10);
+      // PERUBAHAN 2: Ambil nilai langsung dari objek node yang sudah difilter oleh backend Go
+      const cpuCap = parseInt(node.cpu || '0', 10);
+      const memKi = parseInt(node.memory || '0', 10);
       const memGB = (memKi / (1024 * 1024)).toFixed(1);
-
-      // Ambil DISK STORAGE asli (KiB) dari Node
-      const diskKi = parseInt(node.status.capacity?.['ephemeral-storage'] || '0', 10);
 
       totalCores += cpuCap;
       totalMemBytes += memKi;
-      totalDiskBytes += diskKi;
 
       return {
-        name: node.metadata.name,
-        role: node.metadata.labels?.['node-role.kubernetes.io/control-plane'] !== undefined ? 'Control Plane' : 'Worker',
-        status: isReady ? 'Ready' : 'NotReady',
+        name: node.name,
+        role: node.role || 'Worker',
+        status: 'Ready', // Backend belum mengirim status, kita set default
         cpu: `${cpuCap} Cores`,
         ram: `${memGB} GB Capacity`,
         uptime: 'Live',
-        ip: node.status.addresses?.find((a) => a.type === 'InternalIP')?.address || 'N/A',
+        ip: node.ip || 'N/A',
         heartbeat: 'Active'
       };
     });
 
-    // Konversi Total RAM & Disk ke GB atau TB
     const totalRAM_GB = (totalMemBytes / (1024 * 1024)).toFixed(1);
+    const storage = formatStorage(rawData.storage?.usedBytes, rawData.storage?.totalBytes);
 
-    // Total Disk dalam GB (atau TB jika > 1000 GB)
-    const totalDisk_GB = (totalDiskBytes / (1024 * 1024)).toFixed(1);
-    const isTB = totalDisk_GB >= 1000;
-    const totalDiskFormatted = isTB ? (totalDisk_GB / 1024).toFixed(1) : totalDisk_GB;
-    const diskUnit = isTB ? 'TB' : 'GB';
-
-    // 3. Sekarang CPU, RAM, dan STORAGE 100% REAL DARI HARDWARE ASLI SERVER:
     return {
       cpu: { used: (totalCores * 0.45).toFixed(1), total: totalCores, percent: 45.0, unit: 'Cores' },
       ram: { used: (totalRAM_GB * 0.6).toFixed(1), total: totalRAM_GB, percent: 60.0, unit: 'GB', available: (totalRAM_GB * 0.4).toFixed(1) + ' GB' },
-      // Storage Real dari total kapasitas disk node:
       storage: {
-        used: (totalDiskFormatted * 0.35).toFixed(1),
-        total: totalDiskFormatted,
-        percent: 35.0,
-        unit: diskUnit
+        used: storage.used,
+        total: storage.total,
+        percent: Number(rawData.storage?.percent || 0).toFixed(1),
+        unit: storage.unit,
       },
       podsCapacity: { active: realNodes.length * 12, max: realNodes.length * 50, running: realNodes.length * 12, crash: 0 },
       nodes: realNodes
@@ -68,7 +71,6 @@ export async function fetchClusterOverview() {
 
   } catch (err) {
     console.error('Gagal mengambil data dari Kubernetes:', err.message);
-    // Fallback jika proxy belum jalan
     return {
       cpu: { used: 0, total: 0, percent: 0, unit: 'Cores' },
       ram: { used: 0, total: 0, percent: 0, unit: 'GB', available: '0 GB' },
@@ -190,9 +192,6 @@ export async function loginUser(username, password) {
     if (!res.ok) throw new Error('Login failed');
     return await res.json();
   } catch {
-    if (username === 'superuser' && password === 'superuser123') {
-      return { success: true, user: { username: 'superuser', name: 'Super User', role: 'System Administrator', avatar: 'SU' } };
-    }
     throw new Error('Username atau Password salah!');
   }
 }

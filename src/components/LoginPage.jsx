@@ -31,7 +31,6 @@ export default function LoginPage({ onLogin }) {
 
     setIsLoading(true);
 
-    // Verifikasi autentikasi kredensial superuser / superuser123
     setTimeout(() => {
       setIsLoading(true);
       loginUser(u, p)

@@ -12,11 +12,11 @@ import {
 } from 'lucide-react';
 
 export default function ClusterSettingsView() {
-  const [telegramToken, setTelegramToken] = useState('7129841294:AAHq_m71...');
-  const [telegramChatId, setTelegramChatId] = useState('-10018928172');
-  const [discordWebhook, setDiscordWebhook] = useState('https://discord.com/api/webhooks/12837192...');
-  const [registryUrl, setRegistryUrl] = useState('harbor.bsmr.internal');
-  const [registryUser, setRegistryUser] = useState('robot$container-monitor');
+  const [telegramToken, setTelegramToken] = useState('');
+  const [telegramChatId, setTelegramChatId] = useState('');
+  const [discordWebhook, setDiscordWebhook] = useState('');
+  const [registryUrl, setRegistryUrl] = useState('');
+  const [registryUser, setRegistryUser] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [testedWebhook, setTestedWebhook] = useState(false);
 
