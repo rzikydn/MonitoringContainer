@@ -5,7 +5,7 @@ import {
   Trash2,
   Search,
 } from 'lucide-react';
-import { fetchNamespaces, fetchWorkloadsPods, buildLogStreamUrl } from '../../../services/api';
+import { apiClient } from '../../../services/api';
 
 export default function LiveLogsView({ initialTarget }) {
   const [namespaces, setNamespaces] = useState([]);
@@ -20,7 +20,7 @@ export default function LiveLogsView({ initialTarget }) {
   const eventSourceRef = useRef(null);
 
   useEffect(() => {
-    fetchNamespaces().then((data) => setNamespaces(data));
+    apiClient.fetchNamespaces().then((data) => setNamespaces(data));
   }, []);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export default function LiveLogsView({ initialTarget }) {
       setPods([]);
       return;
     }
-    fetchWorkloadsPods(selectedNamespace).then((data) => setPods(data));
+    apiClient.fetchWorkloadsPods(selectedNamespace).then((data) => setPods(data));
   }, [selectedNamespace]);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function LiveLogsView({ initialTarget }) {
     stopStream();
     setLogs([]);
 
-    const url = buildLogStreamUrl(selectedNamespace, selectedPod, selectedContainer);
+    const url = apiClient.buildLogStreamUrl(selectedNamespace, selectedPod, selectedContainer);
     const es = new EventSource(url);
     eventSourceRef.current = es;
 
@@ -68,7 +68,7 @@ export default function LiveLogsView({ initialTarget }) {
       setSelectedNamespace(initialTarget.namespace);
       setSelectedPod(initialTarget.name);
       stopStream();
-      const url = buildLogStreamUrl(initialTarget.namespace, initialTarget.name, '');
+      const url = apiClient.buildLogStreamUrl(initialTarget.namespace, initialTarget.name, '');
       const es = new EventSource(url);
       eventSourceRef.current = es;
       setLogs([]);

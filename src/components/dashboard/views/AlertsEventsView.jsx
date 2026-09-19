@@ -6,7 +6,7 @@ import {
   Clock,
   Webhook,
 } from 'lucide-react';
-import { fetchAlerts } from '../../../services/api';
+import { apiClient } from '../../../services/api';
 
 function formatRelativeTime(isoTime) {
   if (!isoTime) return 'Unknown time';
@@ -26,7 +26,7 @@ export default function AlertsEventsView() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = () => fetchAlerts().then((data) => {
+    const load = () => apiClient.fetchAlerts().then((data) => {
       setAlerts(data.alerts);
       setWebhookConfigured(data.webhookConfigured);
       setLoading(false);

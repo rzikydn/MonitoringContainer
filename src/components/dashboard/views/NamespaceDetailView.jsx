@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';
-import { fetchWorkloadsPods, fetchNamespaceQuota } from '../../../services/api';
+import { apiClient } from '../../../services/api';
 
 function QuotaCard({ title, icon: Icon, data, color, noQuotaHint }) {
   if (!data) {
@@ -58,8 +58,8 @@ export default function NamespaceDetailView({ namespaceKey, namespaceMeta }) {
 
   useEffect(() => {
     setQuota(null);
-    fetchWorkloadsPods(namespaceKey).then((data) => setPods(data));
-    fetchNamespaceQuota(namespaceKey).then((data) => setQuota(data));
+    apiClient.fetchWorkloadsPods(namespaceKey).then((data) => setPods(data));
+    apiClient.fetchNamespaceQuota(namespaceKey).then((data) => setQuota(data));
   }, [namespaceKey]);
 
   return (

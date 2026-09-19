@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
-import { fetchDeployments, scaleDeployment, restartDeployment } from '../../../services/api';
+import { apiClient } from '../../../services/api';
 
 function deploymentStatus(d) {
   if (d.desired === 0) return 'Stopped';
@@ -22,7 +22,7 @@ export default function AppServicesView() {
   const [notice, setNotice] = useState(null);
   const [sliderDraft, setSliderDraft] = useState({}); // nilai slider selama drag, sebelum di-apply
 
-  const load = () => fetchDeployments('all').then((data) => {
+  const load = () => apiClient.fetchDeployments('all').then((data) => {
     setServices(data);
     setLoading(false);
   });
@@ -49,10 +49,10 @@ export default function AppServicesView() {
     }
   };
 
-  const handleStop = (svc) => runAction(svc, 'Stop', () => scaleDeployment(svc.namespace, svc.name, 0));
-  const handleStart = (svc) => runAction(svc, 'Start', () => scaleDeployment(svc.namespace, svc.name, Math.max(svc.desired, 1)));
-  const handleRestart = (svc) => runAction(svc, 'Restart', () => restartDeployment(svc.namespace, svc.name));
-  const handleScaleCommit = (svc, replicas) => runAction(svc, `Scale ke ${replicas} replica`, () => scaleDeployment(svc.namespace, svc.name, replicas));
+  const handleStop = (svc) => runAction(svc, 'Stop', () => apiClient.scaleDeployment(svc.namespace, svc.name, 0));
+  const handleStart = (svc) => runAction(svc, 'Start', () => apiClient.scaleDeployment(svc.namespace, svc.name, Math.max(svc.desired, 1)));
+  const handleRestart = (svc) => runAction(svc, 'Restart', () => apiClient.restartDeployment(svc.namespace, svc.name));
+  const handleScaleCommit = (svc, replicas) => runAction(svc, `Scale ke ${replicas} replica`, () => apiClient.scaleDeployment(svc.namespace, svc.name, replicas));
 
   return (
     <div className="dashboard-view-container">

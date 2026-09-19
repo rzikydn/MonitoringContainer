@@ -11,7 +11,7 @@ import {
   Layers,
   ArrowUpRight,
 } from 'lucide-react';
-import { fetchWorkloadsPods, fetchNamespaces, fetchDeployments, restartPod, fetchPodMetrics } from '../../../services/api';
+import { apiClient } from '../../../services/api';
 
 const POD_STATUS_STYLE = {
   Running: 'badge-success',
@@ -31,13 +31,13 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
   const [podMetrics, setPodMetrics] = useState({ metricsAvailable: false, byKey: {} });
   const [loading, setLoading] = useState(true);
 
-  const loadPods = () => fetchWorkloadsPods().then((data) => setPods(data));
+  const loadPods = () => apiClient.fetchWorkloadsPods().then((data) => setPods(data));
 
   useEffect(() => {
-    Promise.all([loadPods(), fetchDeployments().then((data) => setDeployments(data))]).finally(() => setLoading(false));
-    fetchNamespaces().then((data) => setNamespaces(data));
+    Promise.all([loadPods(), apiClient.fetchDeployments().then((data) => setDeployments(data))]).finally(() => setLoading(false));
+    apiClient.fetchNamespaces().then((data) => setNamespaces(data));
 
-    const loadMetrics = () => fetchPodMetrics().then((data) => setPodMetrics(data));
+    const loadMetrics = () => apiClient.fetchPodMetrics().then((data) => setPodMetrics(data));
     loadMetrics();
     const METRICS_REFRESH_MS = 15 * 1000; // "live" — polling lebih sering dari cluster overview
     const intervalId = setInterval(loadMetrics, METRICS_REFRESH_MS);
@@ -65,7 +65,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
     }
     setRestartingPod(pod.name);
     try {
-      await restartPod(pod.namespace, pod.name);
+      await apiClient.restartPod(pod.namespace, pod.name);
       await loadPods();
     } catch (err) {
       alert(`Gagal restart pod: ${err.message}`);

@@ -85,7 +85,7 @@ import DeployAppView from './dashboard/views/DeployAppView';
 import AppServicesView from './dashboard/views/AppServicesView';
 import NamespaceDetailView from './dashboard/views/NamespaceDetailView';
 import ClusterSettingsView from './dashboard/views/ClusterSettingsView';
-import { fetchNamespaces, createNamespace, deleteNamespace } from '../services/api';
+import { apiClient } from '../services/api';
 
 export default function DashboardPage({ user, onLogout }) {
   const isMobile = useIsMobile();
@@ -95,7 +95,7 @@ export default function DashboardPage({ user, onLogout }) {
   const [namespaces, setNamespaces] = useState([]);
 
   const loadNamespaces = () => {
-    fetchNamespaces().then((data) => {
+    apiClient.fetchNamespaces().then((data) => {
       const mapped = data.map((ns) => ({ ...ns, icon: Folder }));
       setNamespaces(mapped);
       setSelectedNamespace((current) => current || (mapped[0] && mapped[0].name) || '');
@@ -131,7 +131,7 @@ export default function DashboardPage({ user, onLogout }) {
     const formattedName = newNsName.trim().toLowerCase().replace(/\s+/g, '-');
     setNamespaceActionError('');
     try {
-      await createNamespace(formattedName, {
+      await apiClient.createNamespace(formattedName, {
         description: newNsDesc || 'Custom Project',
         cpuRequest: newNsCpuRequest,
         cpuLimit: newNsCpuLimit,
@@ -161,7 +161,7 @@ export default function DashboardPage({ user, onLogout }) {
       return;
     }
     try {
-      await deleteNamespace(nsName);
+      await apiClient.deleteNamespace(nsName);
       const filtered = namespaces.filter((n) => n.name !== nsName);
       setNamespaces(filtered);
       if (selectedNamespace === nsName) {
