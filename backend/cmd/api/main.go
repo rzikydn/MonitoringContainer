@@ -1275,9 +1275,17 @@ func main() {
 
 		// Isolasi jaringan: pod di namespace tenant hanya bisa diakses dari pod lain
 		// di namespace yang sama atau dari ingress controller, tidak dari namespace
-		// tenant lain. Mengikuti pola isolate-<namespace> yang sudah dipakai manual
-		// di cluster ini. Hanya membatasi Ingress — egress tetap bebas (DNS, API
+		// tenant lain. Hanya membatasi Ingress — egress tetap bebas (DNS, API
 		// eksternal, dll tetap jalan seperti biasa).
+		//
+		// PENTING: peer "same-namespace" SENGAJA ditulis eksplisit lewat
+		// namespaceSelector (bukan podSelector:{} kosong tanpa namespaceSelector,
+		// walau secara spec K8s keduanya seharusnya setara/"scoped ke namespace
+		// sendiri"). Terbukti lewat pengujian manual bahwa kube-router (network
+		// policy controller bawaan k3s di cluster ini) SALAH menerapkan bentuk
+		// podSelector:{} kosong — trafik same-namespace yang seharusnya diizinkan
+		// malah ikut ditolak. Bentuk namespaceSelector eksplisit di bawah ini
+		// terbukti bekerja benar.
 		networkPolicyApplied := true
 		netpol := &networkingv1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: "isolate-" + body.Name},
@@ -1287,7 +1295,9 @@ func main() {
 				Ingress: []networkingv1.NetworkPolicyIngressRule{
 					{
 						From: []networkingv1.NetworkPolicyPeer{
-							{PodSelector: &metav1.LabelSelector{}},
+							{NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"kubernetes.io/metadata.name": body.Name},
+							}},
 							{NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{"kubernetes.io/metadata.name": ingressControllerNamespace()},
 							}},
