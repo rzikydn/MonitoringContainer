@@ -11,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"k8s-dashboard-backend/pkg/kubeletmetrics"
+
+	"github.com/gin-gonic/gin"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +59,7 @@ func (s *PodService) RegisterRoutes(r *gin.Engine) {
 // handleList: sumber data untuk Fitur 3 (Project/Namespace Grouping) & Fitur 5
 // (Pod Lifecycle). Lintas semua namespace, atau satu namespace lewat ?namespace=.
 func (s *PodService) handleList(c *gin.Context) {
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	namespace := c.Query("namespace")
@@ -136,7 +137,7 @@ func (s *PodService) handleDelete(c *gin.Context) {
 		return
 	}
 
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	if err := s.clientset.CoreV1().Pods(namespace).Delete(requestContext, name, metav1.DeleteOptions{}); err != nil {
@@ -240,7 +241,7 @@ func (s *PodService) kubeletToken(ctx context.Context) (string, error) {
 // pernah bisa diakses karena Service metrics-server tak pernah Ready) pakai
 // token ServiceAccount "metrics-server" yang sudah ada RBAC-nya.
 func (s *PodService) handleGetMetrics(c *gin.Context) {
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	namespaceFilter := c.Query("namespace")

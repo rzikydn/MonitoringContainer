@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"k8s-dashboard-backend/pkg/nodeexporter"
+
+	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -60,7 +61,7 @@ func (s *NodeService) LatestOverview() gin.H {
 }
 
 func (s *NodeService) handleGetOverview(c *gin.Context) {
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	nodes, err := s.clientset.CoreV1().Nodes().List(requestContext, metav1.ListOptions{})

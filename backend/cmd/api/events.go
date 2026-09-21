@@ -51,7 +51,7 @@ type simpleEvent struct {
 }
 
 func (s *EventService) handleList(c *gin.Context) {
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	eventsList, err := s.clientset.CoreV1().Events("").List(requestContext, metav1.ListOptions{})

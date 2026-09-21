@@ -9,8 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"k8s-dashboard-backend/pkg/ingressmetrics"
+
+	"github.com/gin-gonic/gin"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -50,7 +51,7 @@ func (s *NetworkService) RegisterRoutes(r *gin.Engine) {
 // dihitung dari Endpoints asli (bukan ditebak), dan status TLS Ingress dari
 // Spec.TLS asli.
 func (s *NetworkService) handleGetOverview(c *gin.Context) {
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	services, svcErr := s.clientset.CoreV1().Services("").List(requestContext, metav1.ListOptions{})
@@ -170,7 +171,7 @@ func (s *NetworkService) handleGetOverview(c *gin.Context) {
 // (pod IP overlay Flannel terbukti tidak terjangkau dari tempat backend ini
 // berjalan — lihat Config.IngressMetricsServiceName).
 func (s *NetworkService) handleGetTraffic(c *gin.Context) {
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	ingressNamespace := s.cfg.IngressControllerNamespace()

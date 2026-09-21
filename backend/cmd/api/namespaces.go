@@ -71,7 +71,7 @@ func (s *NamespaceService) RegisterRoutes(r *gin.Engine) {
 }
 
 func (s *NamespaceService) handleList(c *gin.Context) {
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	nsList, err := s.clientset.CoreV1().Namespaces().List(requestContext, metav1.ListOptions{})
@@ -131,7 +131,7 @@ func (s *NamespaceService) handleCreate(c *gin.Context) {
 		body.PodsQuota = "10"
 	}
 
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	ns := &corev1.Namespace{
@@ -328,7 +328,7 @@ func (s *NamespaceService) applyRBACTemplate(ctx context.Context, name string) b
 func (s *NamespaceService) handleDelete(c *gin.Context) {
 	name := c.Param("name")
 
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	if err := s.clientset.CoreV1().Namespaces().Delete(requestContext, name, metav1.DeleteOptions{}); err != nil {
@@ -346,7 +346,7 @@ func (s *NamespaceService) handleDelete(c *gin.Context) {
 // namespace belum diberi ResourceQuota sama sekali.
 func (s *NamespaceService) handleGetQuota(c *gin.Context) {
 	name := c.Param("name")
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	rqList, rqErr := s.clientset.CoreV1().ResourceQuotas(name).List(requestContext, metav1.ListOptions{})

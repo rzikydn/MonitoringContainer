@@ -36,7 +36,7 @@ func (s *DeploymentService) RegisterRoutes(r *gin.Engine) {
 
 // handleList: sumber "jumlah replica" untuk Fitur 5 (Deployment & Pod Lifecycle).
 func (s *DeploymentService) handleList(c *gin.Context) {
-	requestContext, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	requestContext, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	namespace := c.Query("namespace")
