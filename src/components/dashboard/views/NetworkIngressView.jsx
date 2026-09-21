@@ -8,7 +8,7 @@ import {
   Activity,
   ArrowLeftRight,
 } from 'lucide-react';
-import { fetchNetworkIngress, fetchTrafficOverview } from '../../../services/api';
+import { apiClient } from '../../../services/api';
 
 export default function NetworkIngressView() {
   const [services, setServices] = useState([]);
@@ -17,13 +17,13 @@ export default function NetworkIngressView() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchNetworkIngress().then((data) => {
+    apiClient.fetchNetworkIngress().then((data) => {
       setServices(data.services);
       setIngressRoutes(data.ingress);
       setLoading(false);
     });
 
-    const loadTraffic = () => fetchTrafficOverview().then((data) => setTraffic(data));
+    const loadTraffic = () => apiClient.fetchTrafficOverview().then((data) => setTraffic(data));
     loadTraffic();
     const TRAFFIC_REFRESH_MS = 15 * 1000;
     const intervalId = setInterval(loadTraffic, TRAFFIC_REFRESH_MS);

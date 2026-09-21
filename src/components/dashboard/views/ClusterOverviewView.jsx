@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Cpu, HardDrive, Database, Server, ShieldCheck, CheckCircle2, RefreshCw, ArrowUpRight, History, AlertTriangle, ArrowRightLeft } from 'lucide-react';
-import { fetchClusterOverview, fetchClusterEvents } from '../../../services/api';
+import { apiClient } from '../../../services/api';
 
 const EVENT_REASON_STYLE = {
   NodeNotReady: { badge: 'badge-danger', icon: AlertTriangle, label: 'Node Down' },
@@ -32,8 +32,8 @@ export default function ClusterOverviewView({ onNavigate }) {
 
   useEffect(() => {
     const refresh = () => {
-      fetchClusterOverview().then((data) => setClusterData(data));
-      fetchClusterEvents().then((data) => setEvents(data));
+      apiClient.fetchClusterOverview().then((data) => setClusterData(data));
+      apiClient.fetchClusterEvents().then((data) => setEvents(data));
     };
 
     refresh();
@@ -64,7 +64,7 @@ export default function ClusterOverviewView({ onNavigate }) {
             <ShieldCheck style={{ width: '13px', height: '13px' }} />
             {allNodesReady ? 'Failover Quorum OK' : `${notReadyNodes.length} Node${notReadyNodes.length > 1 ? 's' : ''} Down`}
           </span>
-          <button onClick={() => fetchClusterOverview().then(setClusterData)} className="btn-dash btn-dash-secondary btn-dash-sm">
+          <button onClick={() => apiClient.fetchClusterOverview().then(setClusterData)} className="btn-dash btn-dash-secondary btn-dash-sm">
             <RefreshCw style={{ width: '13px', height: '13px' }} /> Sync Metrics
           </button>
         </div>

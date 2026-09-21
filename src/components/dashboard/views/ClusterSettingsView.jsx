@@ -5,7 +5,7 @@ import {
   AlertCircle,
   Send,
 } from 'lucide-react';
-import { fetchAlerts, sendTestAlert } from '../../../services/api';
+import { apiClient } from '../../../services/api';
 
 export default function ClusterSettingsView() {
   const [webhookConfigured, setWebhookConfigured] = useState(false);
@@ -14,7 +14,7 @@ export default function ClusterSettingsView() {
   const [testResult, setTestResult] = useState(null);
 
   useEffect(() => {
-    fetchAlerts().then((data) => {
+    apiClient.fetchAlerts().then((data) => {
       setWebhookConfigured(data.webhookConfigured);
       setTelegramConfigured(data.telegramConfigured);
     });
@@ -24,7 +24,7 @@ export default function ClusterSettingsView() {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await sendTestAlert();
+      const result = await apiClient.sendTestAlert();
       setTestResult(result.sent
         ? { type: 'success', text: 'Test alert berhasil dikirim ke channel yang dikonfigurasi.' }
         : { type: 'error', text: result.message || 'Belum ada channel yang dikonfigurasi.' });

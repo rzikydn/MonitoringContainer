@@ -3,7 +3,7 @@ import { AtSign, Check } from 'lucide-react';
 import serverIllustration from '../assets/server1.svg';
 import SmoothInput from './SmoothInput';
 import AnimatedLock from './AnimatedLock';
-import { loginUser } from '../services/api';
+import { apiClient } from '../services/api';
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -33,7 +33,7 @@ export default function LoginPage({ onLogin }) {
 
     setTimeout(() => {
       setIsLoading(true);
-      loginUser(u, p)
+      apiClient.loginUser(u, p)
         .then((res) => {
           setIsLoading(false);
           if (onLogin) onLogin(res.user, rememberMe);

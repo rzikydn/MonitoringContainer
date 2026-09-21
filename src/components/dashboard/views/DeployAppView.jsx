@@ -6,7 +6,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { deployApplication, fetchNamespaces } from '../../../services/api';
+import { apiClient } from '../../../services/api';
 
 
 export default function DeployAppView({ onDeployed }) {
@@ -24,7 +24,7 @@ export default function DeployAppView({ onDeployed }) {
   const [deployError, setDeployError] = useState('');
 
   useEffect(() => {
-    fetchNamespaces().then((data) => {
+    apiClient.fetchNamespaces().then((data) => {
       setNamespaces(data);
       setNamespace((current) => current || (data[0] && data[0].name) || '');
     });
@@ -51,7 +51,7 @@ export default function DeployAppView({ onDeployed }) {
     setDeployedSuccess(false);
 
     try {
-      await deployApplication({ appName, image, namespace, port, replicas, cpuLimit, ramLimit, envVars });
+      await apiClient.deployApplication({ appName, image, namespace, port, replicas, cpuLimit, ramLimit, envVars });
       setDeployedSuccess(true);
       if (onDeployed) onDeployed();
     } catch (err) {
