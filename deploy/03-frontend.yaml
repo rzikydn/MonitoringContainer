@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: monitoring-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard-frontend
+  template:
+    metadata:
+      labels:
+        app: dashboard-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: monitoring-frontend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+# type: LoadBalancer -- ini yang membuat MetalLB mengambil satu IP dari
+# address pool yang sudah dikonfigurasi dan menempelkannya sebagai EXTERNAL-IP
+# Service ini. Kalau mau IP tertentu (bukan yang pertama tersedia di pool),
+# tambahkan annotation metallb.io/loadBalancerIPs (MetalLB >=0.13) atau field
+# spec.loadBalancerIP (versi lama) di sini.
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: monitoring-system
+spec:
+  type: LoadBalancer
+  selector:
+    app: dashboard-frontend
+  ports:
+    - port: 80
+      targetPort: 80

@@ -1,0 +1,60 @@
+# Secret opsional untuk Fitur 10 (Alert Notifications). Isi placeholder di
+# bawah lalu `kubectl apply -f deploy/02-backend.yaml` ulang kalau mau
+# mengaktifkan webhook/Telegram. Boleh dibiarkan kosong — alert tetap
+# dihitung & tampil di dashboard, cuma tidak dikirim keluar (lihat
+# AlertService.sendNotification / Config.AlertWebhookURL di config.go).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dashboard-backend-secrets
+  namespace: monitoring-system
+type: Opaque
+stringData:
+  ALERT_WEBHOOK_URL: ""
+  TELEGRAM_BOT_TOKEN: ""
+  TELEGRAM_CHAT_ID: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: monitoring-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashboard-backend
+  template:
+    metadata:
+      labels:
+        app: dashboard-backend
+    spec:
+      serviceAccountName: dashboard-backend
+      containers:
+        - name: backend
+          image: monitoring-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: dashboard-backend-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: monitoring-system
+spec:
+  selector:
+    app: dashboard-backend
+  ports:
+    - port: 8080
+      targetPort: 8080

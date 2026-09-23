@@ -11,7 +11,21 @@ import (
 
 // InitClient mengembalikan clientset K8s standar beserta *rest.Config-nya,
 // supaya config yang sama bisa dipakai ulang untuk clientset lain (mis. metrics.k8s.io).
+//
+// Dicoba dulu in-cluster config (ServiceAccount token yang di-mount otomatis
+// di /var/run/secrets/kubernetes.io/serviceaccount) — ini jalur yang dipakai
+// saat backend berjalan sebagai Pod di dalam cluster (lihat deploy/backend.yaml).
+// Kalau gagal (berarti sedang dijalankan di luar cluster, mis. `go run` lokal
+// untuk development), fallback ke kubeconfig file seperti sebelumnya.
 func InitClient() (*kubernetes.Clientset, *rest.Config, error) {
+	if inClusterConfig, err := rest.InClusterConfig(); err == nil {
+		clientset, err := kubernetes.NewForConfig(inClusterConfig)
+		if err != nil {
+			return nil, nil, err
+		}
+		return clientset, inClusterConfig, nil
+	}
+
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
 		// Di Windows, ini mengarah ke C:\Users\<User>\.kube\config

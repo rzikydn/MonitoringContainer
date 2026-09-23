@@ -1,0 +1,70 @@
+# ServiceAccount + ClusterRole untuk backend dashboard. Daftar resource/verb di
+# bawah ini diambil langsung dari semua pemanggilan clientset di backend/cmd/api/*.go
+# (lihat masing-masing *Service): NodeService, PodService, DeploymentService,
+# NamespaceService, NetworkService, EventService.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dashboard-backend
+  namespace: monitoring-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dashboard-backend
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "persistentvolumes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims", "endpoints", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["resourcequotas", "limitranges", "serviceaccounts"]
+    verbs: ["get", "list", "watch", "create"]
+  # Dipakai kubeletToken() (pods.go) untuk mint token SA metrics-server via
+  # TokenRequest API, lalu query langsung ke kubelet /metrics/resource (Fitur 6).
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    verbs: ["create"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create"]
+  # "bind"/"escalate" diperlukan karena NamespaceService.applyRBACTemplate()
+  # membuat Role+RoleBinding baru di tiap namespace tenant baru — RBAC admission
+  # controller K8s menolak create Role/RoleBinding kalau si pembuat (SA ini)
+  # tidak punya (atau tidak diizinkan escalate) permission yang sama persis.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "bind", "escalate"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dashboard-backend
+subjects:
+  - kind: ServiceAccount
+    name: dashboard-backend
+    namespace: monitoring-system
+roleRef:
+  kind: ClusterRole
+  name: dashboard-backend
+  apiGroup: rbac.authorization.k8s.io
