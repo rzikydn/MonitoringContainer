@@ -57,10 +57,10 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
     setPendingAction(key);
     try {
       await fn();
-      setNotice({ type: 'success', text: `${svc.name}: ${actionLabel} berhasil.` });
+      setNotice({ type: 'success', text: `${svc.name}: ${actionLabel} succeeded.` });
       await load();
     } catch (err) {
-      setNotice({ type: 'error', text: `${svc.name}: ${actionLabel} gagal — ${err.message}` });
+      setNotice({ type: 'error', text: `${svc.name}: ${actionLabel} failed — ${err.message}` });
     } finally {
       setPendingAction(null);
       setTimeout(() => setNotice(null), 4000);
@@ -70,7 +70,7 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
   const handleStop = (svc) => runAction(svc, 'Stop', () => apiClient.scaleDeployment(svc.namespace, svc.name, 0));
   const handleStart = (svc) => runAction(svc, 'Start', () => apiClient.scaleDeployment(svc.namespace, svc.name, Math.max(svc.desired, 1)));
   const handleRestart = (svc) => runAction(svc, 'Restart', () => apiClient.restartDeployment(svc.namespace, svc.name));
-  const handleScaleCommit = (svc, replicas) => runAction(svc, `Scale ke ${replicas} replica`, () => apiClient.scaleDeployment(svc.namespace, svc.name, replicas));
+  const handleScaleCommit = (svc, replicas) => runAction(svc, `Scale to ${replicas} replica${replicas === 1 ? '' : 's'}`, () => apiClient.scaleDeployment(svc.namespace, svc.name, replicas));
 
   return (
     <div className="dashboard-view-container">
@@ -78,7 +78,7 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
       <div className="view-header-row">
         <div className="view-title-group">
           <h2>App Services</h2>
-          <p>Start, stop, restart, dan atur jumlah replica Deployment langsung dari sini</p>
+          <p>Start, stop, restart, and scale your running apps — right from here</p>
         </div>
         <div className="view-actions-group">
           <select
@@ -124,8 +124,8 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
       ) : filteredServices.length === 0 ? (
         <div style={{ color: '#64748B', textAlign: 'center', padding: '40px 0', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
           {services.length === 0
-            ? 'Belum ada Deployment di cluster ini.'
-            : `Tidak ada Deployment di namespace "${filterNamespace}".`}
+            ? 'No apps deployed in this cluster yet.'
+            : `No apps found in the "${filterNamespace}" namespace.`}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

@@ -12,6 +12,7 @@ export default function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   const triggerShake = () => {
     setIsShaking(true);
@@ -29,6 +30,7 @@ export default function LoginPage({ onLogin }) {
       return;
     }
 
+    setLoginError('');
     setIsLoading(true);
 
     setTimeout(() => {
@@ -41,7 +43,7 @@ export default function LoginPage({ onLogin }) {
         .catch((err) => {
           setIsLoading(false);
           triggerShake();
-          alert(err.message);
+          setLoginError(err.message);
         });
     }, 450);
   };
@@ -94,7 +96,7 @@ export default function LoginPage({ onLogin }) {
               marginBottom: '12px',
               width: 'fit-content',
             }}
-            title="Kredensial belum divalidasi — username/password apapun akan diterima. Jangan expose dashboard ini ke jaringan publik sampai auth sungguhan terpasang."
+            title="Credentials aren't validated yet — any username/password will be accepted. Don't expose this dashboard to a public network until real authentication is in place."
           >
             ⚠ Development Mode — No Auth Validation
           </div>
@@ -149,8 +151,8 @@ export default function LoginPage({ onLogin }) {
                   type="button"
                   className="input-icon-btn"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
-                  title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
                   tabIndex={-1}
                 >
                   <AnimatedLock isOpen={showPassword} size={18} strokeWidth={2.2} />
@@ -185,12 +187,18 @@ export default function LoginPage({ onLogin }) {
               {isLoading ? (
                 <>
                   <span className="spinner" aria-hidden="true" />
-                  <span>Memverifikasi...</span>
+                  <span>Verifying...</span>
                 </>
               ) : (
                 'Login'
               )}
             </button>
+
+            {loginError && (
+              <p style={{ margin: '10px 0 0', fontSize: '0.8rem', color: '#B91C1C', textAlign: 'center' }}>
+                {loginError}
+              </p>
+            )}
           </form>
 
           {/* Footer Copyright */}

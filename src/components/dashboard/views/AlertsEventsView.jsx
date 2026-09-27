@@ -50,7 +50,7 @@ export default function AlertsEventsView() {
         <div className="view-title-group">
           <h2>Cluster Alerts & Event History</h2>
           <p>
-            Node down, pod sering restart, dan resource threshold &gt;85% — dievaluasi tiap 30 detik
+            Node outages, frequent pod restarts, and resource usage above 85% — checked every 30 seconds
           </p>
         </div>
         <div className="view-actions-group">
@@ -75,9 +75,8 @@ export default function AlertsEventsView() {
 
       {!webhookConfigured && (
         <div style={{ fontSize: '0.8rem', color: '#B45309', backgroundColor: '#FFFBEB', padding: '10px 14px', borderRadius: '8px', border: '1px solid #FDE68A' }}>
-          Alert belum dikirim ke channel manapun. Set <code>ALERT_WEBHOOK_URL</code> (Slack/Discord/Teams/generic webhook JSON)
-          atau <code>TELEGRAM_BOT_TOKEN</code>+<code>TELEGRAM_CHAT_ID</code> di backend untuk mengaktifkan notifikasi keluar —
-          lihat halaman Notification Settings untuk detail dan status masing-masing channel.
+          Alerts aren't being sent anywhere yet. Configure a webhook (Slack/Discord/Teams/generic JSON) or a Telegram bot
+          on the backend to turn on outgoing notifications — see Notification Settings for details and channel status.
         </div>
       )}
 
@@ -99,7 +98,7 @@ export default function AlertsEventsView() {
       {filteredAlerts.length === 0 ? (
         <div style={{ color: '#64748B', textAlign: 'center', padding: '40px 0', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
           <Info style={{ width: '20px', height: '20px', margin: '0 auto 8px', display: 'block', color: '#94A3B8' }} />
-          Tidak ada alert aktif — cluster dalam kondisi sehat.
+          No active alerts — the cluster is healthy.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

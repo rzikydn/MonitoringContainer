@@ -52,7 +52,7 @@ export default function ClusterOverviewView() {
     return () => clearInterval(intervalId);
   }, []);
 
-  if (!clusterData) return <div style={{ padding: '20px', color: '#64748B' }}>Loading Cluster Telemetry...</div>;
+  if (!clusterData) return <div style={{ padding: '20px', color: '#64748B' }}>Loading cluster overview...</div>;
 
   const notReadyNodes = clusterData.nodes.filter((n) => n.status !== 'Ready');
   const allNodesReady = notReadyNodes.length === 0;
@@ -64,8 +64,8 @@ export default function ClusterOverviewView() {
       {/* Header */}
       <div className="view-header-row">
         <div className="view-title-group">
-          <h2>Cluster Overview & Aggregated Capacity</h2>
-          <p>Real-time telemetry and node health across {clusterData.nodes.length} node{clusterData.nodes.length !== 1 ? 's' : ''}</p>
+          <h2>Cluster Overview</h2>
+          <p>Live resource usage and node health across {clusterData.nodes.length} node{clusterData.nodes.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="view-actions-group">
           <span className={`k8s-badge ${allNodesReady ? 'badge-success' : 'badge-danger'}`}>
@@ -88,7 +88,7 @@ export default function ClusterOverviewView() {
           <div className="metric-card-subtext">
             {clusterData.metricsAvailable
               ? <><strong>{clusterData.cpu.percent}%</strong> capacity utilized</>
-              : <span style={{ color: '#B45309' }}>metrics-server not installed — usage unavailable</span>}
+              : <span style={{ color: '#B45309' }}>Usage data unavailable</span>}
           </div>
         </div>
 
@@ -100,7 +100,7 @@ export default function ClusterOverviewView() {
           <div className="metric-card-subtext">
             {clusterData.metricsAvailable
               ? <><strong>{clusterData.ram.percent}%</strong> in use ({clusterData.ram.available} available)</>
-              : <span style={{ color: '#B45309' }}>metrics-server not installed — usage unavailable</span>}
+              : <span style={{ color: '#B45309' }}>Usage data unavailable</span>}
           </div>
         </div>
 
@@ -112,7 +112,7 @@ export default function ClusterOverviewView() {
           <div className="metric-card-subtext">
             {clusterData.metricsAvailable
               ? <><strong>{clusterData.disk.percent}%</strong> {clusterData.disk.source}</>
-              : <span style={{ color: '#B45309' }}>node-exporter unavailable — usage unavailable</span>}
+              : <span style={{ color: '#B45309' }}>Usage data unavailable</span>}
           </div>
         </div>
 

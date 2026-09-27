@@ -63,11 +63,11 @@ export default function NetworkIngressView() {
           </div>
           <div className="metric-card-subtext">
             {!traffic.metricsAvailable ? (
-              <span style={{ color: '#B45309' }}>ingress-nginx metrics unavailable</span>
+              <span style={{ color: '#B45309' }}>Traffic metrics unavailable</span>
             ) : !traffic.hasRate ? (
-              <span style={{ color: '#64748B' }}>Menunggu sampel kedua...</span>
+              <span style={{ color: '#64748B' }}>Waiting for the next sample...</span>
             ) : (
-              'dari ingress-nginx-controller'
+              'from live ingress traffic'
             )}
           </div>
         </div>
@@ -82,7 +82,7 @@ export default function NetworkIngressView() {
             <span style={{ fontSize: '0.85rem', color: '#64748B' }}>%</span>
           </div>
           <div className="metric-card-subtext">
-            {traffic.metricsAvailable && traffic.hasRate ? 'dari total request masuk' : 'Belum ada data'}
+            {traffic.metricsAvailable && traffic.hasRate ? 'of all incoming requests' : 'No data yet'}
           </div>
         </div>
 
@@ -96,7 +96,7 @@ export default function NetworkIngressView() {
             <span style={{ fontSize: '0.85rem', color: '#64748B' }}>ms</span>
           </div>
           <div className="metric-card-subtext">
-            {traffic.metricsAvailable && traffic.hasRate ? 'rata-rata semua request' : 'Belum ada data'}
+            {traffic.metricsAvailable && traffic.hasRate ? 'average across all requests' : 'No data yet'}
           </div>
         </div>
       </div>

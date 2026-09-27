@@ -106,19 +106,19 @@ class ApiClient {
       return {
         cpu: metricsAvailable
           ? { used: cpuUsedCores.toFixed(2), total: cpuTotalCores.toFixed(1), percent: Number(rawData.cpu.percent || 0).toFixed(1), unit: 'Cores' }
-          : { used: 'N/A', total: cpuTotalCores.toFixed(1), percent: 0, unit: 'Cores', source: 'metrics-server unavailable' },
+          : { used: 'N/A', total: cpuTotalCores.toFixed(1), percent: 0, unit: 'Cores', source: 'Usage data unavailable' },
         ram: metricsAvailable
           ? { used: ramUsedGB.toFixed(1), total: ramTotalGB.toFixed(1), percent: Number(rawData.memory.percent || 0).toFixed(1), unit: 'GB', available: (ramTotalGB - ramUsedGB).toFixed(1) + ' GB' }
-          : { used: 'N/A', total: totalRAM_GB, percent: 0, unit: 'GB', available: 'N/A', source: 'metrics-server unavailable' },
+          : { used: 'N/A', total: totalRAM_GB, percent: 0, unit: 'GB', available: 'N/A', source: 'Usage data unavailable' },
         disk: metricsAvailable && diskTotalBytes > 0
-          ? { used: diskUsage.used, total: diskUsage.total, percent: Number(rawData.disk.percent || 0).toFixed(1), unit: diskUsage.unit, source: 'Node ephemeral-storage (host disk)' }
-          : { used: 'N/A', total: diskUsage.total, percent: 0, unit: diskUsage.unit, source: 'node-exporter unavailable' },
+          ? { used: diskUsage.used, total: diskUsage.total, percent: Number(rawData.disk.percent || 0).toFixed(1), unit: diskUsage.unit, source: 'of node disk capacity' }
+          : { used: 'N/A', total: diskUsage.total, percent: 0, unit: diskUsage.unit, source: 'Usage data unavailable' },
         storage: {
           used: storage.used,
           total: storage.total,
           percent: storagePercent,
           unit: storage.unit,
-          source: hasPersistentStorage ? 'Persistent volume allocation' : 'No PersistentVolumes found',
+          source: hasPersistentStorage ? 'of allocated storage' : 'No storage volumes found',
         },
         metricsAvailable,
         podsCapacity: {
@@ -433,7 +433,7 @@ class ApiClient {
         body: JSON.stringify({ username, password }),
       });
     } catch {
-      throw new Error('Username atau Password salah!');
+      throw new Error('Unable to reach the server. Please try again.');
     }
   }
 }

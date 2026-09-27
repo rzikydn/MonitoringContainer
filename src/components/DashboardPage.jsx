@@ -147,7 +147,10 @@ export default function DashboardPage({ user, onLogout }) {
 
   const handleDeleteNamespace = async (nsName) => {
     if (namespaces.length <= 1) {
-      alert('Cluster requires at least one namespace.');
+      alert('You need to keep at least one namespace.');
+      return;
+    }
+    if (!window.confirm(`Delete namespace "${nsName}"? This permanently removes every pod, service, and resource inside it. This cannot be undone.`)) {
       return;
     }
     try {
@@ -158,7 +161,7 @@ export default function DashboardPage({ user, onLogout }) {
         setSelectedNamespace(filtered[0].name);
       }
     } catch (err) {
-      alert(`Gagal menghapus namespace: ${err.message}`);
+      alert(`Couldn't delete namespace: ${err.message}`);
     }
   };
 
@@ -621,7 +624,7 @@ export default function DashboardPage({ user, onLogout }) {
             </div>
 
             <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B' }}>
-              Setiap namespace baru otomatis dilengkapi resource quota, network isolation, dan RBAC scoped — cukup isi form ini, tanpa kubectl.
+              Every new namespace automatically gets its own resource quota, network isolation, and scoped permissions — just fill out this form, no command line needed.
             </p>
 
             {namespaceActionError && (

@@ -66,9 +66,9 @@ export default function DeployAppView({ onDeployed }) {
       {/* Header */}
       <div className="view-header-row">
         <div className="view-title-group">
-          <h2>Deploy New App (Zero-CLI Wizard)</h2>
+          <h2>Deploy New App</h2>
           <p>
-            Launch containerized microservices into the cluster with automatic Deployment and Service provisioning — pengganti kubectl apply/docker run
+            Launch a containerized app into the cluster with automatic networking set up — no command line needed
           </p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export default function DeployAppView({ onDeployed }) {
             <div>
               <div style={{ fontWeight: 700, color: '#15803D' }}>Deployment Created!</div>
               <div style={{ fontSize: '0.82rem', color: '#166534' }}>
-                Deployment + Service <strong>{appName}</strong> dengan {replicas} replica berhasil dibuat di namespace <strong>{namespace}</strong>.
+                <strong>{appName}</strong> is now running with {replicas} replica{replicas > 1 ? 's' : ''} in the <strong>{namespace}</strong> namespace.
               </div>
             </div>
           </div>

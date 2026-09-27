@@ -100,9 +100,9 @@ export default function LiveLogsView({ initialTarget }) {
       {/* Header */}
       <div className="view-header-row">
         <div className="view-title-group">
-          <h2>Centralized Live Log Viewer</h2>
+          <h2>Live Log Viewer</h2>
           <p>
-            Real-time streaming stdout/stderr log feed langsung dari container cluster, tanpa SSH
+            Stream logs from any container in the cluster in real time — no SSH needed
           </p>
         </div>
         <div className="view-actions-group">
@@ -239,11 +239,11 @@ export default function LiveLogsView({ initialTarget }) {
         <div className="terminal-body">
           {!selectedNamespace || !selectedPod ? (
             <div style={{ color: '#64748B', textAlign: 'center', padding: '40px 0' }}>
-              Pilih namespace dan pod, lalu klik "Start Stream" untuk melihat log real-time.
+              Select a namespace and pod, then click "Start Stream" to see live logs.
             </div>
           ) : filteredLogs.length === 0 ? (
             <div style={{ color: '#64748B', textAlign: 'center', padding: '40px 0' }}>
-              {isStreaming ? 'Menunggu log baru...' : 'Belum ada log. Klik "Start Stream" untuk mulai.'}
+              {isStreaming ? 'Waiting for new logs...' : 'No logs yet. Click "Start Stream" to begin.'}
             </div>
           ) : (
             filteredLogs.map((item) => (

@@ -26,8 +26,8 @@ export default function ClusterSettingsView() {
     try {
       const result = await apiClient.sendTestAlert();
       setTestResult(result.sent
-        ? { type: 'success', text: 'Test alert berhasil dikirim ke channel yang dikonfigurasi.' }
-        : { type: 'error', text: result.message || 'Belum ada channel yang dikonfigurasi.' });
+        ? { type: 'success', text: 'Test alert sent successfully to the configured channel(s).' }
+        : { type: 'error', text: result.message || 'No channel is configured yet.' });
     } catch (err) {
       setTestResult({ type: 'error', text: err.message });
     } finally {
@@ -43,7 +43,7 @@ export default function ClusterSettingsView() {
       <div className="view-header-row">
         <div className="view-title-group">
           <h2>Alert Notification Settings</h2>
-          <p>Status channel notifikasi untuk alert cluster (node down, pod restart, resource threshold)</p>
+          <p>Status of the channels used to notify you about cluster issues (node outages, pod restarts, resource limits)</p>
         </div>
       </div>
 
@@ -84,7 +84,7 @@ export default function ClusterSettingsView() {
             onClick={handleTestAlert}
             disabled={testing || !anyConfigured}
             className="btn-dash btn-dash-secondary btn-dash-sm"
-            title={anyConfigured ? 'Kirim test alert ke channel yang aktif' : 'Belum ada channel dikonfigurasi'}
+            title={anyConfigured ? 'Send a test alert to the active channel(s)' : 'No channel configured yet'}
           >
             <Send style={{ width: '12px', height: '12px' }} />
             {testing ? 'Sending...' : 'Send Test Alert'}
@@ -95,7 +95,7 @@ export default function ClusterSettingsView() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #E2E8F0' }}>
             <div>
               <div style={{ fontWeight: 600, color: '#0F172A' }}>Generic Webhook</div>
-              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>Slack, Discord, Microsoft Teams, atau webhook JSON generik lainnya</div>
+              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>Slack, Discord, Microsoft Teams, or any generic JSON webhook</div>
             </div>
             <span className={`k8s-badge ${webhookConfigured ? 'badge-success' : 'badge-muted'}`}>
               {webhookConfigured ? 'Configured' : 'Not Configured'}
@@ -105,7 +105,7 @@ export default function ClusterSettingsView() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
             <div>
               <div style={{ fontWeight: 600, color: '#0F172A' }}>Telegram Bot</div>
-              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>Kirim ke chat/group/channel Telegram lewat bot</div>
+              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>Sends alerts to a Telegram chat, group, or channel via a bot</div>
             </div>
             <span className={`k8s-badge ${telegramConfigured ? 'badge-success' : 'badge-muted'}`}>
               {telegramConfigured ? 'Configured' : 'Not Configured'}
@@ -114,8 +114,8 @@ export default function ClusterSettingsView() {
         </div>
 
         <div style={{ fontSize: '0.78rem', color: '#64748B', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px', marginTop: '4px' }}>
-          Channel dikonfigurasi lewat environment variable di backend (bukan lewat form ini — kredensial sensitif seperti ini
-          sengaja tidak disimpan dari browser). Set salah satu atau kedua, lalu restart backend:
+          Channels are configured through environment variables on the backend, not through this form — sensitive
+          credentials like these are intentionally never stored from the browser. Set one or both, then restart the backend:
           <div style={{ fontFamily: 'monospace', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <span>ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...</span>
             <span>TELEGRAM_BOT_TOKEN=123456789:ABC...</span>

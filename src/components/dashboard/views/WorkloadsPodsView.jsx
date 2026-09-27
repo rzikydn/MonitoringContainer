@@ -26,6 +26,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
   const [restartingPod, setRestartingPod] = useState(null);
   const [podMetrics, setPodMetrics] = useState({ metricsAvailable: false, byKey: {} });
   const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState(null);
 
   const loadPods = () => apiClient.fetchWorkloadsPods().then((data) => setPods(data));
 
@@ -56,17 +57,19 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
   const crashCount = pods.filter((p) => p.status === 'CrashLoopBackOff').length;
 
   const handleRestart = async (pod) => {
-    if (!window.confirm(`Restart pod "${pod.name}"? Kalau pod ini dikelola Deployment/ReplicaSet, penggantinya otomatis dibuat. Kalau pod berdiri sendiri, pod akan hilang permanen.`)) {
+    if (!window.confirm(`Restart "${pod.name}"? If it's managed by a Deployment, a replacement will be created automatically. If it's standalone, it will be gone for good.`)) {
       return;
     }
     setRestartingPod(pod.name);
     try {
       await apiClient.restartPod(pod.namespace, pod.name);
       await loadPods();
+      setNotice({ type: 'success', text: `${pod.name}: restart succeeded.` });
     } catch (err) {
-      alert(`Gagal restart pod: ${err.message}`);
+      setNotice({ type: 'error', text: `${pod.name}: restart failed — ${err.message}` });
     } finally {
       setRestartingPod(null);
+      setTimeout(() => setNotice(null), 4000);
     }
   };
 
@@ -77,20 +80,44 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
       {/* Header */}
       <div className="view-header-row">
         <div className="view-title-group">
-          <h2>Workloads & Pods Live Metrics</h2>
+          <h2>Workloads & Pods</h2>
           <p>
-            Real-time status, restart counters, and resource telemetry per container pod
+            Live status, restart counts, and resource usage for every running container
           </p>
         </div>
         <div className="view-actions-group">
           {crashCount > 0 && (
             <span className="k8s-badge badge-warning">
               <AlertTriangle style={{ width: '13px', height: '13px' }} />
-              {crashCount} CrashLoopBackOff Pod{crashCount > 1 ? 's' : ''} Detected
+              {crashCount} Pod{crashCount > 1 ? 's' : ''} Crashing
             </span>
           )}
         </div>
       </div>
+
+      {notice && (
+        <div
+          style={{
+            backgroundColor: notice.type === 'success' ? '#EFF6FF' : '#FEF2F2',
+            border: `1px solid ${notice.type === 'success' ? '#BFDBFE' : '#FECACA'}`,
+            borderRadius: '10px',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            color: notice.type === 'success' ? '#1E40AF' : '#B91C1C',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+          }}
+        >
+          {notice.type === 'success' ? (
+            <CheckCircle2 style={{ width: '16px', height: '16px', color: '#2563EB' }} />
+          ) : (
+            <AlertTriangle style={{ width: '16px', height: '16px', color: '#B91C1C' }} />
+          )}
+          {notice.text}
+        </div>
+      )}
 
       {/* Filter Row */}
       <div
@@ -283,7 +310,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
                     <button
                       onClick={() => handleRestart(pod)}
                       className="btn-dash btn-dash-secondary btn-dash-sm"
-                      title="Restart Pod (delete → dibuat ulang otomatis kalau dikelola controller)"
+                      title="Restart pod (recreated automatically if managed by a controller)"
                       disabled={restartingPod === pod.name}
                     >
                       <RotateCw style={{ width: '12px', height: '12px' }} />
