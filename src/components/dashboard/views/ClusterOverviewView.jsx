@@ -31,7 +31,7 @@ function formatRelativeTime(isoTime) {
 // warna berarti "perhatikan ini", bukan sekadar dekorasi (Fitur 1).
 const NEAR_CAPACITY_PERCENT = 85;
 function fillColor(percent) {
-  return percent >= NEAR_CAPACITY_PERCENT ? '#EF4444' : '#284C6E';
+  return percent >= NEAR_CAPACITY_PERCENT ? 'var(--danger-strong)' : 'var(--accent)';
 }
 
 export default function ClusterOverviewView() {
@@ -52,7 +52,7 @@ export default function ClusterOverviewView() {
     return () => clearInterval(intervalId);
   }, []);
 
-  if (!clusterData) return <div style={{ padding: '20px', color: '#64748B' }}>Loading cluster overview...</div>;
+  if (!clusterData) return <div style={{ padding: '20px', color: 'var(--text-muted)' }}>Loading cluster overview...</div>;
 
   const notReadyNodes = clusterData.nodes.filter((n) => n.status !== 'Ready');
   const allNodesReady = notReadyNodes.length === 0;
@@ -83,43 +83,43 @@ export default function ClusterOverviewView() {
         {/* CPU */}
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Total CPU Usage</span><Cpu style={{ width: '18px', height: '18px' }} /></div>
-          <div className="metric-card-value">{clusterData.cpu.used} / {clusterData.cpu.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.cpu.unit}</span></div>
+          <div className="metric-card-value">{clusterData.cpu.used} / {clusterData.cpu.total} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{clusterData.cpu.unit}</span></div>
           <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.cpu.percent}%`, backgroundColor: fillColor(clusterData.cpu.percent) }} /></div>
           <div className="metric-card-subtext">
             {clusterData.metricsAvailable
               ? <><strong>{clusterData.cpu.percent}%</strong> capacity utilized</>
-              : <span style={{ color: '#B45309' }}>Usage data unavailable</span>}
+              : <span style={{ color: 'var(--warning-strong)' }}>Usage data unavailable</span>}
           </div>
         </div>
 
         {/* RAM */}
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Aggregated Memory</span><Activity style={{ width: '18px', height: '18px' }} /></div>
-          <div className="metric-card-value">{clusterData.ram.used} / {clusterData.ram.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.ram.unit}</span></div>
+          <div className="metric-card-value">{clusterData.ram.used} / {clusterData.ram.total} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{clusterData.ram.unit}</span></div>
           <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.ram.percent}%`, backgroundColor: fillColor(clusterData.ram.percent) }} /></div>
           <div className="metric-card-subtext">
             {clusterData.metricsAvailable
               ? <><strong>{clusterData.ram.percent}%</strong> in use ({clusterData.ram.available} available)</>
-              : <span style={{ color: '#B45309' }}>Usage data unavailable</span>}
+              : <span style={{ color: 'var(--warning-strong)' }}>Usage data unavailable</span>}
           </div>
         </div>
 
         {/* Cluster Disk Capacity: total dari ephemeral-storage node, usage dari node-exporter */}
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Cluster Disk Capacity</span><HardDrive style={{ width: '18px', height: '18px' }} /></div>
-          <div className="metric-card-value">{clusterData.disk.used} / {clusterData.disk.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.disk.unit}</span></div>
+          <div className="metric-card-value">{clusterData.disk.used} / {clusterData.disk.total} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{clusterData.disk.unit}</span></div>
           <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.disk.percent}%`, backgroundColor: fillColor(clusterData.disk.percent) }} /></div>
           <div className="metric-card-subtext">
             {clusterData.metricsAvailable
               ? <><strong>{clusterData.disk.percent}%</strong> {clusterData.disk.source}</>
-              : <span style={{ color: '#B45309' }}>Usage data unavailable</span>}
+              : <span style={{ color: 'var(--warning-strong)' }}>Usage data unavailable</span>}
           </div>
         </div>
 
         {/* Persistent Volume Allocation: metrik terpisah dari kapasitas disk node di atas */}
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Persistent Volume Allocation</span><Database style={{ width: '18px', height: '18px' }} /></div>
-          <div className="metric-card-value">{clusterData.storage.used} / {clusterData.storage.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.storage.unit}</span></div>
+          <div className="metric-card-value">{clusterData.storage.used} / {clusterData.storage.total} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{clusterData.storage.unit}</span></div>
           <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.storage.percent}%`, backgroundColor: fillColor(clusterData.storage.percent) }} /></div>
           <div className="metric-card-subtext"><strong>{clusterData.storage.percent}%</strong> {clusterData.storage.source}</div>
         </div>
@@ -127,7 +127,7 @@ export default function ClusterOverviewView() {
         {/* Pods Count */}
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Pods Capacity</span><Server style={{ width: '18px', height: '18px' }} /></div>
-          <div className="metric-card-value">{clusterData.podsCapacity.active} / {clusterData.podsCapacity.max} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>Pods</span></div>
+          <div className="metric-card-value">{clusterData.podsCapacity.active} / {clusterData.podsCapacity.max} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Pods</span></div>
           <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${podsPercent}%`, backgroundColor: fillColor(podsPercent) }} /></div>
           <div className="metric-card-subtext">{clusterData.podsCapacity.running} Running • {clusterData.podsCapacity.crash} CrashLoopBackOff</div>
         </div>
@@ -144,15 +144,15 @@ export default function ClusterOverviewView() {
         </div>
         <div className="nodes-grid">
           {clusterData.nodes.map((node) => (
-            <div key={node.name} style={{ border: '1px solid #E2E8F0', borderRadius: '10px', padding: '16px', backgroundColor: '#FFFFFF', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div key={node.name} style={{ border: '1px solid var(--border)', borderRadius: '10px', padding: '16px', backgroundColor: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Server style={{ width: '18px', height: '18px', color: '#284C6E' }} />
+                    <Server style={{ width: '18px', height: '18px', color: 'var(--accent)' }} />
                     <span style={{ fontWeight: 700 }}>{node.name}</span>
                     <span className="k8s-badge badge-info">{node.role}</span>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '4px', fontFamily: 'monospace' }}>IP: {node.ip}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px', fontFamily: 'monospace' }}>IP: {node.ip}</div>
                 </div>
                 <span className={`k8s-badge ${node.status === 'Ready' ? 'badge-success' : 'badge-danger'}`}><CheckCircle2 style={{ width: '12px', height: '12px' }} /> {node.status}</span>
               </div>
@@ -173,20 +173,20 @@ export default function ClusterOverviewView() {
           <span className="k8s-badge badge-info"><History style={{ width: '13px', height: '13px' }} /> Live from Kubernetes Events</span>
         </div>
         {events.length === 0 ? (
-          <div style={{ padding: '20px', color: '#64748B', fontSize: '0.85rem' }}>No recent failover or scheduling events.</div>
+          <div style={{ padding: '20px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No recent failover or scheduling events.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '16px' }}>
             {events.map((ev) => {
               const style = EVENT_REASON_STYLE[ev.reason] || { badge: 'badge-info', icon: History, label: ev.reason || 'Event' };
               const Icon = style.icon;
               return (
-                <div key={ev.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+                <div key={ev.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px', border: '1px solid var(--border)', borderRadius: '8px' }}>
                   <span className={`k8s-badge ${style.badge}`} style={{ flexShrink: 0 }}>
                     <Icon style={{ width: '12px', height: '12px' }} /> {style.label}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.85rem', color: '#1E293B' }}>{ev.message}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px', fontFamily: 'monospace' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{ev.message}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'monospace' }}>
                       {ev.object}{ev.node ? ` · node: ${ev.node}` : ''} · {formatRelativeTime(ev.time)}
                     </div>
                   </div>

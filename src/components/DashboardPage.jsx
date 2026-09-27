@@ -74,6 +74,7 @@ import DeployAppView from './dashboard/views/DeployAppView';
 import AppServicesView from './dashboard/views/AppServicesView';
 import NamespaceDetailView from './dashboard/views/NamespaceDetailView';
 import ClusterSettingsView from './dashboard/views/ClusterSettingsView';
+import ThemeToggle from './ThemeToggle';
 import { apiClient } from '../services/api';
 
 export default function DashboardPage({ user, onLogout }) {
@@ -213,7 +214,7 @@ export default function DashboardPage({ user, onLogout }) {
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
-                    backgroundColor: '#284C6E',
+                    backgroundColor: 'var(--accent-solid)',
                     color: '#FFFFFF',
                     display: 'flex',
                     alignItems: 'center',
@@ -224,10 +225,10 @@ export default function DashboardPage({ user, onLogout }) {
                   <Server style={{ width: '16px', height: '16px' }} />
                 </div>
                 <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span className="truncate font-semibold" style={{ fontSize: '0.86rem', fontWeight: 600, color: '#0F172A' }}>
+                  <span className="truncate font-semibold" style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-strong)' }}>
                     Kubernetes Cluster
                   </span>
-                  <span className="truncate text-xs" style={{ fontSize: '0.74rem', color: '#64748B' }}>
+                  <span className="truncate text-xs" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                     {namespaces.length} namespace{namespaces.length !== 1 ? 's' : ''}
                   </span>
                 </div>
@@ -396,9 +397,9 @@ export default function DashboardPage({ user, onLogout }) {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => handleDeleteNamespace(item.name)}
-                        style={{ color: '#EF4444' }}
+                        style={{ color: 'var(--danger-strong)' }}
                       >
-                        <Trash2 className="text-muted-foreground" style={{ color: '#EF4444' }} />
+                        <Trash2 className="text-muted-foreground" style={{ color: 'var(--danger-strong)' }} />
                         <span>Delete Namespace</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -410,9 +411,9 @@ export default function DashboardPage({ user, onLogout }) {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => setShowNewNamespaceModal(true)}
-                  style={{ color: '#284C6E', fontWeight: 600 }}
+                  style={{ color: 'var(--accent)', fontWeight: 600 }}
                 >
-                  <Plus style={{ color: '#284C6E' }} />
+                  <Plus style={{ color: 'var(--accent)' }} />
                   <span>New Namespace</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -464,15 +465,15 @@ export default function DashboardPage({ user, onLogout }) {
                     >
                       <span
                         className="truncate font-semibold"
-                        style={{ fontSize: '0.86rem', fontWeight: 600, color: '#0F172A' }}
+                        style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-strong)' }}
                       >
                         {userData.name}
                       </span>
-                      <span className="truncate text-xs" style={{ fontSize: '0.74rem', color: '#64748B' }}>
+                      <span className="truncate text-xs" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                         {userData.email}
                       </span>
                     </div>
-                    <ChevronsUpDown className="ml-auto size-4" style={{ width: '14px', height: '14px', color: '#64748B' }} />
+                    <ChevronsUpDown className="ml-auto size-4" style={{ width: '14px', height: '14px', color: 'var(--text-muted)' }} />
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -493,10 +494,10 @@ export default function DashboardPage({ user, onLogout }) {
                         </AvatarFallback>
                       </Avatar>
                       <div className="grid flex-1 text-left text-sm leading-tight" style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span className="truncate font-semibold" style={{ fontSize: '0.86rem', fontWeight: 600, color: '#0F172A' }}>
+                        <span className="truncate font-semibold" style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-strong)' }}>
                           {userData.name}
                         </span>
-                        <span className="truncate text-xs" style={{ fontSize: '0.74rem', color: '#64748B' }}>
+                        <span className="truncate text-xs" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                           {userData.email}
                         </span>
                       </div>
@@ -518,13 +519,17 @@ export default function DashboardPage({ user, onLogout }) {
                     onClick={() => {
                       if (onLogout) onLogout();
                     }}
-                    style={{ color: '#EF4444' }}
+                    style={{ color: 'var(--danger-strong)' }}
                   >
-                    <LogOut style={{ color: '#EF4444' }} />
+                    <LogOut style={{ color: 'var(--danger-strong)' }} />
                     Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </SidebarMenuItem>
+
+            <SidebarMenuItem>
+              <ThemeToggle style={{ width: '100%', justifyContent: 'center' }} />
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
@@ -609,26 +614,26 @@ export default function DashboardPage({ user, onLogout }) {
           <div className="dash-modal-box" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FolderPlus style={{ width: '20px', height: '20px', color: '#284C6E' }} />
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
+                <FolderPlus style={{ width: '20px', height: '20px', color: 'var(--accent)' }} />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-strong)' }}>
                   Create New Namespace
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowNewNamespaceModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
               >
                 <X style={{ width: '18px', height: '18px' }} />
               </button>
             </div>
 
-            <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B' }}>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
               Every new namespace automatically gets its own resource quota, network isolation, and scoped permissions — just fill out this form, no command line needed.
             </p>
 
             {namespaceActionError && (
-              <p style={{ margin: 0, fontSize: '0.82rem', color: '#B91C1C', backgroundColor: '#FEF2F2', padding: '8px 10px', borderRadius: '8px' }}>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--danger-strong)', backgroundColor: 'var(--badge-danger-bg)', padding: '8px 10px', borderRadius: '8px' }}>
                 {namespaceActionError}
               </p>
             )}

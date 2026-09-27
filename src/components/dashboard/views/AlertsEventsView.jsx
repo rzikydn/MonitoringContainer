@@ -41,7 +41,7 @@ export default function AlertsEventsView() {
   const criticalCount = alerts.filter((a) => a.severity === 'critical').length;
   const warningCount = alerts.filter((a) => a.severity === 'warning').length;
 
-  if (loading) return <div style={{ padding: '20px', color: '#64748B' }}>Loading alerts...</div>;
+  if (loading) return <div style={{ padding: '20px', color: 'var(--text-muted)' }}>Loading alerts...</div>;
 
   return (
     <div className="dashboard-view-container">
@@ -74,7 +74,7 @@ export default function AlertsEventsView() {
       </div>
 
       {!webhookConfigured && (
-        <div style={{ fontSize: '0.8rem', color: '#B45309', backgroundColor: '#FFFBEB', padding: '10px 14px', borderRadius: '8px', border: '1px solid #FDE68A' }}>
+        <div style={{ fontSize: '0.8rem', color: 'var(--warning-strong)', backgroundColor: 'var(--badge-warning-bg)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--badge-warning-border)' }}>
           Alerts aren't being sent anywhere yet. Configure a webhook (Slack/Discord/Teams/generic JSON) or a Telegram bot
           on the backend to turn on outgoing notifications — see Notification Settings for details and channel status.
         </div>
@@ -96,8 +96,8 @@ export default function AlertsEventsView() {
 
       {/* Alerts List */}
       {filteredAlerts.length === 0 ? (
-        <div style={{ color: '#64748B', textAlign: 'center', padding: '40px 0', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
-          <Info style={{ width: '20px', height: '20px', margin: '0 auto 8px', display: 'block', color: '#94A3B8' }} />
+        <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+          <Info style={{ width: '20px', height: '20px', margin: '0 auto 8px', display: 'block', color: 'var(--text-muted)' }} />
           No active alerts — the cluster is healthy.
         </div>
       ) : (
@@ -106,14 +106,14 @@ export default function AlertsEventsView() {
             <div
               key={alert.id}
               style={{
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #E2E8F0',
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: '10px',
                 padding: '16px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '10px',
-                borderLeft: alert.severity === 'critical' ? '4px solid #EF4444' : '4px solid #F59E0B',
+                borderLeft: alert.severity === 'critical' ? '4px solid var(--danger-strong)' : '4px solid var(--warning-strong)',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -123,17 +123,17 @@ export default function AlertsEventsView() {
                   ) : (
                     <span className="k8s-badge badge-warning">WARNING</span>
                   )}
-                  <span style={{ fontWeight: 700, fontSize: '0.94rem', color: '#0F172A' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.94rem', color: 'var(--text-strong)' }}>
                     {alert.title}
                   </span>
                 </div>
-                <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Clock style={{ width: '12px', height: '12px' }} />
                   {formatRelativeTime(alert.time)}
                 </span>
               </div>
 
-              <div style={{ fontSize: '0.84rem', color: '#334155' }}>
+              <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
                 {alert.message}
               </div>
             </div>

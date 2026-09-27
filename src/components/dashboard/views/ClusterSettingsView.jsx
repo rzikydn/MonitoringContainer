@@ -50,11 +50,11 @@ export default function ClusterSettingsView() {
       {testResult && (
         <div
           style={{
-            backgroundColor: testResult.type === 'success' ? '#DCFCE7' : '#FEF2F2',
-            border: `1px solid ${testResult.type === 'success' ? '#BBF7D0' : '#FECACA'}`,
+            backgroundColor: testResult.type === 'success' ? 'var(--badge-success-bg)' : 'var(--badge-danger-bg)',
+            border: `1px solid ${testResult.type === 'success' ? 'var(--badge-success-border)' : 'var(--badge-danger-border)'}`,
             borderRadius: '10px',
             padding: '12px 16px',
-            color: testResult.type === 'success' ? '#15803D' : '#B91C1C',
+            color: testResult.type === 'success' ? 'var(--success-strong)' : 'var(--danger-strong)',
             fontSize: '0.85rem',
             display: 'flex',
             alignItems: 'center',
@@ -74,8 +74,8 @@ export default function ClusterSettingsView() {
       <div className="node-box">
         <div className="node-box-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Bell style={{ width: '18px', height: '18px', color: '#284C6E' }} />
-            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>
+            <Bell style={{ width: '18px', height: '18px', color: 'var(--accent)' }} />
+            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-strong)' }}>
               Incident Alert Channels
             </h3>
           </div>
@@ -92,10 +92,10 @@ export default function ClusterSettingsView() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '4px 0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #E2E8F0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
             <div>
-              <div style={{ fontWeight: 600, color: '#0F172A' }}>Generic Webhook</div>
-              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>Slack, Discord, Microsoft Teams, or any generic JSON webhook</div>
+              <div style={{ fontWeight: 600, color: 'var(--text-strong)' }}>Generic Webhook</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Slack, Discord, Microsoft Teams, or any generic JSON webhook</div>
             </div>
             <span className={`k8s-badge ${webhookConfigured ? 'badge-success' : 'badge-muted'}`}>
               {webhookConfigured ? 'Configured' : 'Not Configured'}
@@ -104,8 +104,8 @@ export default function ClusterSettingsView() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
             <div>
-              <div style={{ fontWeight: 600, color: '#0F172A' }}>Telegram Bot</div>
-              <div style={{ fontSize: '0.78rem', color: '#64748B' }}>Sends alerts to a Telegram chat, group, or channel via a bot</div>
+              <div style={{ fontWeight: 600, color: 'var(--text-strong)' }}>Telegram Bot</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Sends alerts to a Telegram chat, group, or channel via a bot</div>
             </div>
             <span className={`k8s-badge ${telegramConfigured ? 'badge-success' : 'badge-muted'}`}>
               {telegramConfigured ? 'Configured' : 'Not Configured'}
@@ -113,7 +113,7 @@ export default function ClusterSettingsView() {
           </div>
         </div>
 
-        <div style={{ fontSize: '0.78rem', color: '#64748B', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px', marginTop: '4px' }}>
+        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', backgroundColor: 'var(--surface-muted)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 14px', marginTop: '4px' }}>
           Channels are configured through environment variables on the backend, not through this form — sensitive
           credentials like these are intentionally never stored from the browser. Set one or both, then restart the backend:
           <div style={{ fontFamily: 'monospace', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>

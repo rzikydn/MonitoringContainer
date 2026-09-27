@@ -73,7 +73,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
     }
   };
 
-  if (loading) return <div style={{ padding: '20px', color: '#64748B' }}>Loading workloads...</div>;
+  if (loading) return <div style={{ padding: '20px', color: 'var(--text-muted)' }}>Loading workloads...</div>;
 
   return (
     <div className="dashboard-view-container">
@@ -98,22 +98,22 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
       {notice && (
         <div
           style={{
-            backgroundColor: notice.type === 'success' ? '#EFF6FF' : '#FEF2F2',
-            border: `1px solid ${notice.type === 'success' ? '#BFDBFE' : '#FECACA'}`,
+            backgroundColor: notice.type === 'success' ? 'var(--badge-info-bg)' : 'var(--badge-danger-bg)',
+            border: `1px solid ${notice.type === 'success' ? 'var(--badge-info-border)' : 'var(--badge-danger-border)'}`,
             borderRadius: '10px',
             padding: '12px 16px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            color: notice.type === 'success' ? '#1E40AF' : '#B91C1C',
+            color: notice.type === 'success' ? 'var(--info-strong)' : 'var(--danger-strong)',
             fontSize: '0.85rem',
             fontWeight: 500,
           }}
         >
           {notice.type === 'success' ? (
-            <CheckCircle2 style={{ width: '16px', height: '16px', color: '#2563EB' }} />
+            <CheckCircle2 style={{ width: '16px', height: '16px', color: 'var(--info-strong)' }} />
           ) : (
-            <AlertTriangle style={{ width: '16px', height: '16px', color: '#B91C1C' }} />
+            <AlertTriangle style={{ width: '16px', height: '16px', color: 'var(--danger-strong)' }} />
           )}
           {notice.text}
         </div>
@@ -126,10 +126,10 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
           gap: '12px',
           alignItems: 'center',
           flexWrap: 'wrap',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--surface-muted)',
           padding: '12px',
           borderRadius: '10px',
-          border: '1px solid #E2E8F0',
+          border: '1px solid var(--border)',
         }}
       >
         <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
@@ -141,7 +141,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
               transform: 'translateY(-50%)',
               width: '15px',
               height: '15px',
-              color: '#94A3B8',
+              color: 'var(--text-muted)',
             }}
           />
           <input
@@ -170,7 +170,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
       {/* Deployments Table — jumlah replica real (Fitur 5) */}
       <div className="node-box">
         <div className="node-box-header">
-          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>Deployments</h3>
+          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-strong)' }}>Deployments</h3>
           <span className="k8s-badge badge-info">{filteredDeployments.length} Deployments</span>
         </div>
         <div className="table-responsive-wrapper">
@@ -187,22 +187,22 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
             <tbody>
               {filteredDeployments.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ color: '#64748B', textAlign: 'center', padding: '16px' }}>
+                  <td colSpan={5} style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '16px' }}>
                     No deployments found.
                   </td>
                 </tr>
               ) : (
                 filteredDeployments.map((d) => (
                   <tr key={`${d.namespace}/${d.name}`}>
-                    <td style={{ fontWeight: 600, color: '#0F172A' }}>{d.name}</td>
+                    <td style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{d.name}</td>
                     <td><span className="k8s-badge badge-muted">{d.namespace}</span></td>
                     <td>
-                      <span style={{ fontWeight: 600, color: d.ready < d.desired ? '#B91C1C' : '#15803D' }}>
+                      <span style={{ fontWeight: 600, color: d.ready < d.desired ? 'var(--danger-strong)' : 'var(--success-strong)' }}>
                         {d.ready}/{d.desired}
                       </span>
                     </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748B' }}>{d.image}</td>
-                    <td style={{ color: '#64748B', fontSize: '0.8rem' }}>{d.age}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{d.image}</td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{d.age}</td>
                   </tr>
                 ))
               )}
@@ -214,7 +214,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
       {/* Pods Table (Fitur 5 & 6) */}
       <div className="node-box">
         <div className="node-box-header">
-          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>Pods</h3>
+          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-strong)' }}>Pods</h3>
           <span className="k8s-badge badge-info">{filteredPods.length} Pods</span>
         </div>
         <div className="table-responsive-wrapper">
@@ -242,14 +242,14 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
               <tr key={pod.name}>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Boxes style={{ width: '16px', height: '16px', color: '#284C6E', flexShrink: 0 }} />
-                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{pod.name}</span>
+                    <Boxes style={{ width: '16px', height: '16px', color: 'var(--accent)', flexShrink: 0 }} />
+                    <span style={{ fontWeight: 600, color: 'var(--text-strong)' }}>{pod.name}</span>
                   </div>
                 </td>
                 <td>
                   <span className="k8s-badge badge-muted">{pod.namespace}</span>
                 </td>
-                <td style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: '#64748B' }}>
+                <td style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                   {pod.node}
                 </td>
                 <td>
@@ -266,7 +266,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
                   <span
                     style={{
                       fontWeight: 600,
-                      color: pod.restarts > 0 ? '#B91C1C' : '#15803D',
+                      color: pod.restarts > 0 ? 'var(--danger-strong)' : 'var(--success-strong)',
                     }}
                   >
                     {pod.restarts}x
@@ -292,19 +292,19 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
                 </td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0F172A' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-strong)' }}>
                       {cpuDisplay}
                     </span>
                   </div>
                 </td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0F172A' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-strong)' }}>
                       {memoryDisplay}
                     </span>
                   </div>
                 </td>
-                <td style={{ color: '#64748B', fontSize: '0.8rem' }}>{pod.uptime}</td>
+                <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{pod.uptime}</td>
                 <td style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                     <button

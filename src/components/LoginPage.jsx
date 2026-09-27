@@ -3,6 +3,7 @@ import { AtSign, Check } from 'lucide-react';
 import serverIllustration from '../assets/server1.svg';
 import SmoothInput from './SmoothInput';
 import AnimatedLock from './AnimatedLock';
+import ThemeToggle from './ThemeToggle';
 import { apiClient } from '../services/api';
 
 export default function LoginPage({ onLogin }) {
@@ -50,6 +51,10 @@ export default function LoginPage({ onLogin }) {
 
   return (
     <div className="login-page-wrapper">
+      <div className="login-theme-toggle">
+        <ThemeToggle />
+      </div>
+
       {/* Background Layer: background2.svg Wavy Shape */}
       <div className="background-svg-layer" aria-hidden="true">
         <svg
@@ -58,7 +63,7 @@ export default function LoginPage({ onLogin }) {
           className="background-svg-img"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <rect x="0" y="0" width="960" height="540" fill="#FFFFFF" />
+          <rect x="0" y="0" width="960" height="540" fill="var(--surface)" />
           <path
             d="M618 0L597.2 15C576.3 30 534.7 60 535 90C535.3 120 577.7 150 565.5 180C553.3 210 486.7 240 455.3 270C424 300 428 330 459.8 360C491.7 390 551.3 420 528.7 450C506 480 401 510 348.5 525L296 540L0 540L0 525C0 510 0 480 0 450C0 420 0 390 0 360C0 330 0 300 0 270C0 240 0 210 0 180C0 150 0 120 0 90C0 60 0 30 0 15L0 0Z"
             fill="#254a6e"
@@ -88,9 +93,9 @@ export default function LoginPage({ onLogin }) {
               gap: '6px',
               fontSize: '0.72rem',
               fontWeight: 600,
-              color: '#B45309',
-              backgroundColor: '#FFFBEB',
-              border: '1px solid #FDE68A',
+              color: 'var(--warning-strong)',
+              backgroundColor: 'var(--badge-warning-bg)',
+              border: '1px solid var(--badge-warning-border)',
               borderRadius: '6px',
               padding: '4px 10px',
               marginBottom: '12px',
@@ -195,7 +200,7 @@ export default function LoginPage({ onLogin }) {
             </button>
 
             {loginError && (
-              <p style={{ margin: '10px 0 0', fontSize: '0.8rem', color: '#B91C1C', textAlign: 'center' }}>
+              <p style={{ margin: '10px 0 0', fontSize: '0.8rem', color: 'var(--danger-strong)', textAlign: 'center' }}>
                 {loginError}
               </p>
             )}

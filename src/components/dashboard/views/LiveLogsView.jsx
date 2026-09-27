@@ -139,10 +139,10 @@ export default function LiveLogsView({ initialTarget }) {
           gap: '12px',
           alignItems: 'center',
           flexWrap: 'wrap',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--surface-muted)',
           padding: '12px',
           borderRadius: '10px',
-          border: '1px solid #E2E8F0',
+          border: '1px solid var(--border)',
         }}
       >
         <select
@@ -202,7 +202,7 @@ export default function LiveLogsView({ initialTarget }) {
               transform: 'translateY(-50%)',
               width: '14px',
               height: '14px',
-              color: '#94A3B8',
+              color: 'var(--text-muted)',
             }}
           />
           <input
@@ -231,24 +231,24 @@ export default function LiveLogsView({ initialTarget }) {
             {' • '}
             {isStreaming ? '● LIVE STREAMING' : '❚❚ STOPPED'}
           </div>
-          <div style={{ color: '#64748B', fontSize: '0.74rem' }}>
+          <div style={{ color: '#94A3B8', fontSize: '0.74rem' }}>
             {filteredLogs.length} lines buffered
           </div>
         </div>
 
         <div className="terminal-body">
           {!selectedNamespace || !selectedPod ? (
-            <div style={{ color: '#64748B', textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ color: '#94A3B8', textAlign: 'center', padding: '40px 0' }}>
               Select a namespace and pod, then click "Start Stream" to see live logs.
             </div>
           ) : filteredLogs.length === 0 ? (
-            <div style={{ color: '#64748B', textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ color: '#94A3B8', textAlign: 'center', padding: '40px 0' }}>
               {isStreaming ? 'Waiting for new logs...' : 'No logs yet. Click "Start Stream" to begin.'}
             </div>
           ) : (
             filteredLogs.map((item) => (
               <div key={item.id} className="log-entry">
-                <span style={{ color: '#E2E8F0' }}>{item.line}</span>
+                <span style={{ color: 'var(--border)' }}>{item.line}</span>
               </div>
             ))
           )}

@@ -30,7 +30,7 @@ export default function NetworkIngressView() {
     return () => clearInterval(intervalId);
   }, []);
 
-  if (loading) return <div style={{ padding: '20px', color: '#64748B' }}>Loading network overview...</div>;
+  if (loading) return <div style={{ padding: '20px', color: 'var(--text-muted)' }}>Loading network overview...</div>;
 
   return (
     <div className="dashboard-view-container">
@@ -59,13 +59,13 @@ export default function NetworkIngressView() {
           </div>
           <div className="metric-card-value">
             {traffic.metricsAvailable && traffic.hasRate ? traffic.requestRatePerMin.toFixed(1) : 'N/A'}{' '}
-            <span style={{ fontSize: '0.85rem', color: '#64748B' }}>req/min</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>req/min</span>
           </div>
           <div className="metric-card-subtext">
             {!traffic.metricsAvailable ? (
-              <span style={{ color: '#B45309' }}>Traffic metrics unavailable</span>
+              <span style={{ color: 'var(--warning-strong)' }}>Traffic metrics unavailable</span>
             ) : !traffic.hasRate ? (
-              <span style={{ color: '#64748B' }}>Waiting for the next sample...</span>
+              <span style={{ color: 'var(--text-muted)' }}>Waiting for the next sample...</span>
             ) : (
               'from live ingress traffic'
             )}
@@ -79,7 +79,7 @@ export default function NetworkIngressView() {
           </div>
           <div className="metric-card-value">
             {traffic.metricsAvailable && traffic.hasRate ? traffic.errorRatePercent.toFixed(2) : 'N/A'}{' '}
-            <span style={{ fontSize: '0.85rem', color: '#64748B' }}>%</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>%</span>
           </div>
           <div className="metric-card-subtext">
             {traffic.metricsAvailable && traffic.hasRate ? 'of all incoming requests' : 'No data yet'}
@@ -93,7 +93,7 @@ export default function NetworkIngressView() {
           </div>
           <div className="metric-card-value">
             {traffic.metricsAvailable && traffic.hasRate ? traffic.avgLatencyMs.toFixed(0) : 'N/A'}{' '}
-            <span style={{ fontSize: '0.85rem', color: '#64748B' }}>ms</span>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>ms</span>
           </div>
           <div className="metric-card-subtext">
             {traffic.metricsAvailable && traffic.hasRate ? 'average across all requests' : 'No data yet'}
@@ -104,7 +104,7 @@ export default function NetworkIngressView() {
       {/* Services Table */}
       <div className="node-box">
         <div className="node-box-header">
-          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>
+          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-strong)' }}>
             Kubernetes Services (ClusterIP, NodePort & LoadBalancer)
           </h3>
           <span className="k8s-badge badge-info">{services.length} Services</span>
@@ -125,7 +125,7 @@ export default function NetworkIngressView() {
             <tbody>
               {services.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ color: '#64748B', textAlign: 'center', padding: '16px' }}>
+                  <td colSpan={7} style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '16px' }}>
                     No services found.
                   </td>
                 </tr>
@@ -139,11 +139,11 @@ export default function NetworkIngressView() {
                     <td>
                       <span className="k8s-badge badge-info">{svc.type}</span>
                     </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#475569' }}>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                       {svc.clusterIp}
                     </td>
                     <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{svc.port}</td>
-                    <td style={{ fontSize: '0.8rem', color: svc.status === 'Healthy' ? '#10B981' : '#B91C1C', fontWeight: 500 }}>
+                    <td style={{ fontSize: '0.8rem', color: svc.status === 'Healthy' ? 'var(--success-strong)' : 'var(--danger-strong)', fontWeight: 500 }}>
                       {svc.endpoints}
                     </td>
                     <td>
@@ -167,7 +167,7 @@ export default function NetworkIngressView() {
       {/* Ingress Routing Table */}
       <div className="node-box">
         <div className="node-box-header">
-          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>
+          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-strong)' }}>
             Ingress Routes & Edge Traffic Rules
           </h3>
           <span className="k8s-badge badge-info">
@@ -189,14 +189,14 @@ export default function NetworkIngressView() {
             <tbody>
               {ingressRoutes.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ color: '#64748B', textAlign: 'center', padding: '16px' }}>
+                  <td colSpan={5} style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '16px' }}>
                     No Ingress routes found.
                   </td>
                 </tr>
               ) : (
                 ingressRoutes.map((route, idx) => (
                   <tr key={`${route.namespace}/${route.host}/${route.path}/${idx}`}>
-                    <td style={{ fontWeight: 600, color: '#0284C7', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <td style={{ fontWeight: 600, color: 'var(--info-strong)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Globe style={{ width: '14px', height: '14px' }} />
                       {route.host}
                     </td>

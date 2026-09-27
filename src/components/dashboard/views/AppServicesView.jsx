@@ -98,31 +98,31 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
       {notice && (
         <div
           style={{
-            backgroundColor: notice.type === 'success' ? '#EFF6FF' : '#FEF2F2',
-            border: `1px solid ${notice.type === 'success' ? '#BFDBFE' : '#FECACA'}`,
+            backgroundColor: notice.type === 'success' ? 'var(--badge-info-bg)' : 'var(--badge-danger-bg)',
+            border: `1px solid ${notice.type === 'success' ? 'var(--badge-info-border)' : 'var(--badge-danger-border)'}`,
             borderRadius: '10px',
             padding: '12px 16px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            color: notice.type === 'success' ? '#1E40AF' : '#B91C1C',
+            color: notice.type === 'success' ? 'var(--info-strong)' : 'var(--danger-strong)',
             fontSize: '0.85rem',
             fontWeight: 500,
           }}
         >
           {notice.type === 'success' ? (
-            <CheckCircle2 style={{ width: '16px', height: '16px', color: '#2563EB' }} />
+            <CheckCircle2 style={{ width: '16px', height: '16px', color: 'var(--info-strong)' }} />
           ) : (
-            <AlertCircle style={{ width: '16px', height: '16px', color: '#B91C1C' }} />
+            <AlertCircle style={{ width: '16px', height: '16px', color: 'var(--danger-strong)' }} />
           )}
           {notice.text}
         </div>
       )}
 
       {loading ? (
-        <div style={{ padding: '20px', color: '#64748B' }}>Loading services...</div>
+        <div style={{ padding: '20px', color: 'var(--text-muted)' }}>Loading services...</div>
       ) : filteredServices.length === 0 ? (
-        <div style={{ color: '#64748B', textAlign: 'center', padding: '40px 0', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
+        <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px' }}>
           {services.length === 0
             ? 'No apps deployed in this cluster yet.'
             : `No apps found in the "${filterNamespace}" namespace.`}
@@ -139,8 +139,8 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
               <div
                 key={key}
                 style={{
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #E2E8F0',
+                  backgroundColor: 'var(--surface)',
+                  border: '1px solid var(--border)',
                   borderRadius: '12px',
                   padding: '20px',
                   display: 'flex',
@@ -152,8 +152,8 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <Server style={{ width: '18px', height: '18px', color: '#284C6E' }} />
-                      <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#0F172A' }}>
+                      <Server style={{ width: '18px', height: '18px', color: 'var(--accent)' }} />
+                      <span style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-strong)' }}>
                         {svc.name}
                       </span>
                       <span className="k8s-badge badge-muted">{svc.namespace}</span>
@@ -161,7 +161,7 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
                         {status}
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '4px', fontFamily: 'monospace' }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px', fontFamily: 'monospace' }}>
                       Image: {svc.image} • Age: {svc.age}
                     </div>
                   </div>
@@ -205,8 +205,8 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
                 {/* Scaling Slider Row */}
                 <div
                   style={{
-                    backgroundColor: '#F8FAFC',
-                    border: '1px solid #E2E8F0',
+                    backgroundColor: 'var(--surface-muted)',
+                    border: '1px solid var(--border)',
                     borderRadius: '10px',
                     padding: '14px 16px',
                     display: 'flex',
@@ -217,16 +217,16 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
                   }}
                 >
                   <div style={{ minWidth: '180px' }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
                       Replica Scaling
                     </div>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>
-                      <span style={{ color: svc.ready < svc.desired ? '#B91C1C' : '#284C6E' }}>{svc.ready}/{svc.desired}</span> Ready
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-strong)', marginTop: '2px' }}>
+                      <span style={{ color: svc.ready < svc.desired ? 'var(--danger-strong)' : 'var(--accent)' }}>{svc.ready}/{svc.desired}</span> Ready
                     </div>
                   </div>
 
                   <div style={{ flex: 1, minWidth: '240px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>0</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>0</span>
                     <input
                       type="range"
                       min="0"
@@ -236,9 +236,9 @@ export default function AppServicesView({ initialNamespace = 'All', onNamespaceF
                       onChange={(e) => setSliderDraft((prev) => ({ ...prev, [key]: Number(e.target.value) }))}
                       onMouseUp={(e) => handleScaleCommit(svc, Number(e.target.value))}
                       onTouchEnd={(e) => handleScaleCommit(svc, Number(e.target.value))}
-                      style={{ flex: 1, accentColor: '#284C6E', cursor: 'pointer', height: '24px' }}
+                      style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer', height: '24px' }}
                     />
-                    <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 600 }}>10</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>10</span>
                   </div>
                 </div>
               </div>

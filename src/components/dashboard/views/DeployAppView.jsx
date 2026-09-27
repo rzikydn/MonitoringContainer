@@ -76,8 +76,8 @@ export default function DeployAppView({ onDeployed }) {
       {deployedSuccess && (
         <div
           style={{
-            backgroundColor: '#DCFCE7',
-            border: '1px solid #BBF7D0',
+            backgroundColor: 'var(--badge-success-bg)',
+            border: '1px solid var(--badge-success-border)',
             borderRadius: '10px',
             padding: '16px',
             display: 'flex',
@@ -86,10 +86,10 @@ export default function DeployAppView({ onDeployed }) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <CheckCircle2 style={{ width: '20px', height: '20px', color: '#15803D' }} />
+            <CheckCircle2 style={{ width: '20px', height: '20px', color: 'var(--success-strong)' }} />
             <div>
-              <div style={{ fontWeight: 700, color: '#15803D' }}>Deployment Created!</div>
-              <div style={{ fontSize: '0.82rem', color: '#166534' }}>
+              <div style={{ fontWeight: 700, color: 'var(--success-strong)' }}>Deployment Created!</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--success-strong)' }}>
                 <strong>{appName}</strong> is now running with {replicas} replica{replicas > 1 ? 's' : ''} in the <strong>{namespace}</strong> namespace.
               </div>
             </div>
@@ -106,8 +106,8 @@ export default function DeployAppView({ onDeployed }) {
       {deployError && (
         <div
           style={{
-            backgroundColor: '#FEF2F2',
-            border: '1px solid #FECACA',
+            backgroundColor: 'var(--badge-danger-bg)',
+            border: '1px solid var(--badge-danger-border)',
             borderRadius: '10px',
             padding: '16px',
             display: 'flex',
@@ -116,10 +116,10 @@ export default function DeployAppView({ onDeployed }) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AlertCircle style={{ width: '20px', height: '20px', color: '#B91C1C' }} />
+            <AlertCircle style={{ width: '20px', height: '20px', color: 'var(--danger-strong)' }} />
             <div>
-              <div style={{ fontWeight: 700, color: '#B91C1C' }}>Deployment Failed</div>
-              <div style={{ fontSize: '0.82rem', color: '#991B1B' }}>{deployError}</div>
+              <div style={{ fontWeight: 700, color: 'var(--danger-strong)' }}>Deployment Failed</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--danger-strong)' }}>{deployError}</div>
             </div>
           </div>
           <button
@@ -198,14 +198,14 @@ export default function DeployAppView({ onDeployed }) {
               max="8"
               value={replicas}
               onChange={(e) => setReplicas(Number(e.target.value))}
-              style={{ accentColor: '#284C6E', height: '36px', cursor: 'pointer' }}
+              style={{ accentColor: 'var(--accent)', height: '36px', cursor: 'pointer' }}
             />
           </div>
         </div>
 
         {/* Resource Allocation */}
-        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '16px' }}>
-          <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#0F172A', fontWeight: 600 }}>
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--text-strong)', fontWeight: 600 }}>
             Resource Guarantees & Limits
           </h4>
           <div className="dash-form-grid">
@@ -240,9 +240,9 @@ export default function DeployAppView({ onDeployed }) {
         </div>
 
         {/* Environment Variables */}
-        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '16px' }}>
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#0F172A', fontWeight: 600 }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-strong)', fontWeight: 600 }}>
               Environment Variables (ENV)
             </h4>
             <button
@@ -290,7 +290,7 @@ export default function DeployAppView({ onDeployed }) {
         </div>
 
         {/* Submit */}
-        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button
             type="submit"
             disabled={isSubmitting}
