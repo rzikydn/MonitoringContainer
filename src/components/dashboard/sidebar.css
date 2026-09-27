@@ -487,37 +487,6 @@
   box-sizing: border-box;
 }
 
-.cards-grid-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
-}
-
-.demo-preview-card {
-  border-radius: 12px;
-  background-color: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  aspect-ratio: 16 / 9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.demo-preview-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
-}
-
-.demo-main-card {
-  flex: 1;
-  min-height: 420px;
-  border-radius: 12px;
-  background-color: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
 /* =========================================================
    DASHBOARD CONTENT & MONITORING STYLES
    ========================================================= */
@@ -559,7 +528,7 @@
 /* Stat & Metric Cards */
 .metrics-stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -676,7 +645,11 @@
 /* Node Cards */
 .nodes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  /* min(360px, 100%) instead of a bare 360px: on screens narrower than 360px
+     a hard px minimum would force the grid wider than the viewport and get
+     clipped by .sidebar-inset-container's overflow-x: hidden — this lets the
+     column shrink to fit instead. */
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -694,6 +667,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .node-box-title {
@@ -799,6 +774,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
   border-bottom: 1px solid #1E293B;
 }
 
@@ -915,7 +892,7 @@
 /* Forms */
 .dash-form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -969,10 +946,16 @@
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
   width: 90%;
   max-width: 480px;
+  /* Without this, a short viewport (landscape phone, small window) can clip
+     the bottom of the form — including the Create button — with no way to
+     scroll down to reach it. */
+  max-height: 90vh;
+  overflow-y: auto;
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-sizing: border-box;
 }
 
 /* Dropdown Menu Overlay & Styling */
