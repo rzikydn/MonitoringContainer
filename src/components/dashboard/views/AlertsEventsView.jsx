@@ -75,8 +75,9 @@ export default function AlertsEventsView() {
 
       {!webhookConfigured && (
         <div style={{ fontSize: '0.8rem', color: '#B45309', backgroundColor: '#FFFBEB', padding: '10px 14px', borderRadius: '8px', border: '1px solid #FDE68A' }}>
-          Alert belum dikirim ke webhook/chat platform manapun. Set environment variable <code>ALERT_WEBHOOK_URL</code> di backend
-          (mendukung Slack/Discord/Teams/generic webhook JSON) untuk mengaktifkan notifikasi keluar.
+          Alert belum dikirim ke channel manapun. Set <code>ALERT_WEBHOOK_URL</code> (Slack/Discord/Teams/generic webhook JSON)
+          atau <code>TELEGRAM_BOT_TOKEN</code>+<code>TELEGRAM_CHAT_ID</code> di backend untuk mengaktifkan notifikasi keluar —
+          lihat halaman Notification Settings untuk detail dan status masing-masing channel.
         </div>
       )}
 

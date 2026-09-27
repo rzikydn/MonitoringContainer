@@ -26,16 +26,8 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
   SidebarMenuAction,
 } from './dashboard/Sidebar';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from './dashboard/Collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,11 +49,8 @@ import {
   Folder,
   FolderPlus,
   Sliders,
-  ChevronRight,
   ChevronsUpDown,
   LogOut,
-  BadgeCheck,
-  Sparkles,
   Plus,
   Trash2,
   Forward,
@@ -93,6 +82,7 @@ export default function DashboardPage({ user, onLogout }) {
   const [selectedNamespace, setSelectedNamespace] = useState('');
   const [selectedLogTarget, setSelectedLogTarget] = useState(null);
   const [namespaces, setNamespaces] = useState([]);
+  const [appServicesNamespaceFilter, setAppServicesNamespaceFilter] = useState('All');
 
   const loadNamespaces = () => {
     apiClient.fetchNamespaces().then((data) => {
@@ -199,7 +189,7 @@ export default function DashboardPage({ user, onLogout }) {
       return { category: 'Namespaces', page: `${selectedNamespace} (Quota & Limits)` };
     }
     if (activeTab === 'cluster-settings') {
-      return { category: 'Configuration', page: 'Cluster Settings' };
+      return { category: 'Configuration', page: 'Notification Settings' };
     }
     return { category: 'Dashboard', page: 'Monitoring' };
   };
@@ -251,128 +241,40 @@ export default function DashboardPage({ user, onLogout }) {
             <SidebarGroupLabel>MONITORING & OBSERVABILITY</SidebarGroupLabel>
             <SidebarMenu>
               {/* 1. Cluster Overview */}
-              <Collapsible defaultOpen={true} asChild className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      tooltip="Cluster Overview"
-                      className={activeTab === 'cluster-overview' ? 'active' : ''}
-                      onClick={() => setActiveTab('cluster-overview')}
-                    >
-                      <LayoutDashboard />
-                      <span>Cluster Overview</span>
-                      <ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          className={activeTab === 'cluster-overview' ? 'active' : ''}
-                          onClick={() => setActiveTab('cluster-overview')}
-                        >
-                          <button style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                            <span>Capacity & Nodes</span>
-                          </button>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          onClick={() => setActiveTab('cluster-overview')}
-                        >
-                          <button style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                            <span>Failover Indicator</span>
-                          </button>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Cluster Overview"
+                  className={activeTab === 'cluster-overview' ? 'active' : ''}
+                  onClick={() => setActiveTab('cluster-overview')}
+                >
+                  <LayoutDashboard />
+                  <span>Cluster Overview</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {/* 2. Workloads & Pods */}
-              <Collapsible defaultOpen={false} asChild className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      tooltip="Workloads & Pods"
-                      className={activeTab === 'workloads-pods' ? 'active' : ''}
-                      onClick={() => setActiveTab('workloads-pods')}
-                    >
-                      <Boxes />
-                      <span>Workloads & Pods</span>
-                      <ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          onClick={() => setActiveTab('workloads-pods')}
-                        >
-                          <button style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                            <span>Deployments List</span>
-                          </button>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          onClick={() => setActiveTab('workloads-pods')}
-                        >
-                          <button style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                            <span>Pod Status & Metrics</span>
-                          </button>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Workloads & Pods"
+                  className={activeTab === 'workloads-pods' ? 'active' : ''}
+                  onClick={() => setActiveTab('workloads-pods')}
+                >
+                  <Boxes />
+                  <span>Workloads & Pods</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {/* 3. Network & Ingress */}
-              <Collapsible defaultOpen={false} asChild className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      tooltip="Network & Ingress"
-                      className={activeTab === 'network-ingress' ? 'active' : ''}
-                      onClick={() => setActiveTab('network-ingress')}
-                    >
-                      <Network />
-                      <span>Network & Ingress</span>
-                      <ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          onClick={() => setActiveTab('network-ingress')}
-                        >
-                          <button style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                            <span>Services (ClusterIP/NodePort)</span>
-                          </button>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          onClick={() => setActiveTab('network-ingress')}
-                        >
-                          <button style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-                            <span>HTTP Health Checks</span>
-                          </button>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Network & Ingress"
+                  className={activeTab === 'network-ingress' ? 'active' : ''}
+                  onClick={() => setActiveTab('network-ingress')}
+                >
+                  <Network />
+                  <span>Network & Ingress</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {/* 4. Live Logs */}
               <SidebarMenuItem>
@@ -423,7 +325,10 @@ export default function DashboardPage({ user, onLogout }) {
                 <SidebarMenuButton
                   tooltip="App Services"
                   className={activeTab === 'app-services' ? 'active' : ''}
-                  onClick={() => setActiveTab('app-services')}
+                  onClick={() => {
+                    setAppServicesNamespaceFilter('All');
+                    setActiveTab('app-services');
+                  }}
                 >
                   <Cpu />
                   <span>App Services</span>
@@ -478,6 +383,7 @@ export default function DashboardPage({ user, onLogout }) {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
+                          setAppServicesNamespaceFilter(item.name);
                           setActiveTab('app-services');
                         }}
                       >
@@ -518,12 +424,12 @@ export default function DashboardPage({ user, onLogout }) {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  tooltip="Cluster Settings"
+                  tooltip="Notification Settings"
                   className={activeTab === 'cluster-settings' ? 'active' : ''}
                   onClick={() => setActiveTab('cluster-settings')}
                 >
                   <Sliders />
-                  <span>Cluster Settings</span>
+                  <span>Notification Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -596,15 +502,8 @@ export default function DashboardPage({ user, onLogout }) {
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem onClick={() => setActiveTab('cluster-settings')}>
-                      <Sparkles />
-                      Cluster Capacity Add-on
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem onClick={() => setActiveTab('cluster-settings')}>
-                      <BadgeCheck />
-                      Security & Roles
+                      <Sliders />
+                      Notification Settings
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setActiveTab('alerts-events')}>
                       <Bell />
@@ -623,20 +522,6 @@ export default function DashboardPage({ user, onLogout }) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </SidebarMenuItem>
-
-            {/* Direct Logout Button */}
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => {
-                  if (onLogout) onLogout();
-                }}
-                className="logout-direct-btn"
-                tooltip="Log out"
-              >
-                <LogOut style={{ width: '15px', height: '15px' }} />
-                <span>Log out</span>
-              </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
@@ -670,9 +555,7 @@ export default function DashboardPage({ user, onLogout }) {
 
         {/* Content View Routing */}
         <div className="sidebar-inset-content">
-          {activeTab === 'cluster-overview' && (
-            <ClusterOverviewView onNavigate={(tab) => setActiveTab(tab)} />
-          )}
+          {activeTab === 'cluster-overview' && <ClusterOverviewView />}
 
           {activeTab === 'workloads-pods' && (
             <WorkloadsPodsView
@@ -699,7 +582,12 @@ export default function DashboardPage({ user, onLogout }) {
             />
           )}
 
-          {activeTab === 'app-services' && <AppServicesView />}
+          {activeTab === 'app-services' && (
+            <AppServicesView
+              initialNamespace={appServicesNamespaceFilter}
+              onNamespaceFilterChange={setAppServicesNamespaceFilter}
+            />
+          )}
 
           {activeTab === 'namespace-detail' && (
             <NamespaceDetailView

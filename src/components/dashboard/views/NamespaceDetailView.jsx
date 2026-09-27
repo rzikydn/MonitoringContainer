@@ -39,7 +39,7 @@ function QuotaCard({ title, icon: Icon, data, color, noQuotaHint }) {
           className="metric-progress-fill"
           style={{
             width: data.hasHard ? `${data.pct}%` : '0%',
-            backgroundColor: data.hasHard && data.pct > 80 ? '#EF4444' : color,
+            backgroundColor: data.hasHard && data.pct >= 85 ? '#EF4444' : color,
           }}
         />
       </div>
@@ -88,9 +88,9 @@ export default function NamespaceDetailView({ namespaceKey, namespaceMeta }) {
 
         <div className="metrics-stat-grid">
           <QuotaCard title="CPU Quota" icon={Cpu} data={quota?.cpu} color="#284C6E" noQuotaHint="showing requested CPU" />
-          <QuotaCard title="Memory Limit" icon={Activity} data={quota?.memory} color="#0284C7" noQuotaHint="showing requested memory" />
-          <QuotaCard title="Storage PVC" icon={HardDrive} data={quota?.storage} color="#10B981" noQuotaHint="showing PVC requested" />
-          <QuotaCard title="Max Pods Quota" icon={Boxes} data={quota?.pods} color="#F59E0B" noQuotaHint="showing current pod count" />
+          <QuotaCard title="Memory Limit" icon={Activity} data={quota?.memory} color="#284C6E" noQuotaHint="showing requested memory" />
+          <QuotaCard title="Storage PVC" icon={HardDrive} data={quota?.storage} color="#284C6E" noQuotaHint="showing PVC requested" />
+          <QuotaCard title="Max Pods Quota" icon={Boxes} data={quota?.pods} color="#284C6E" noQuotaHint="showing current pod count" />
         </div>
       </div>
 

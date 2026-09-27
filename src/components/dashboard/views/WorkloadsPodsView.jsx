@@ -5,11 +5,7 @@ import {
   Terminal,
   AlertTriangle,
   CheckCircle2,
-  Clock,
   Search,
-  Filter,
-  Layers,
-  ArrowUpRight,
 } from 'lucide-react';
 import { apiClient } from '../../../services/api';
 
@@ -189,7 +185,12 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
       </div>
 
       {/* Pods Table (Fitur 5 & 6) */}
-      <div className="table-responsive-wrapper">
+      <div className="node-box">
+        <div className="node-box-header">
+          <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0F172A' }}>Pods</h3>
+          <span className="k8s-badge badge-info">{filteredPods.length} Pods</span>
+        </div>
+        <div className="table-responsive-wrapper">
         <table className="k8s-table">
           <thead>
             <tr>
@@ -303,6 +304,7 @@ export default function WorkloadsPodsView({ onNavigateToLogs }) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

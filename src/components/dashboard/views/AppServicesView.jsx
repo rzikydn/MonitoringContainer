@@ -15,8 +15,10 @@ function deploymentStatus(d) {
   return 'Scaling';
 }
 
-export default function AppServicesView() {
+export default function AppServicesView({ initialNamespace = 'All', onNamespaceFilterChange }) {
   const [services, setServices] = useState([]);
+  const [namespaces, setNamespaces] = useState([]);
+  const [filterNamespace, setFilterNamespace] = useState(initialNamespace);
   const [loading, setLoading] = useState(true);
   const [pendingAction, setPendingAction] = useState(null); // `${namespace}/${name}` sedang diproses
   const [notice, setNotice] = useState(null);
@@ -29,10 +31,26 @@ export default function AppServicesView() {
 
   useEffect(() => {
     load();
+    apiClient.fetchNamespaces().then((data) => setNamespaces(data));
     const REFRESH_MS = 15 * 1000;
     const intervalId = setInterval(load, REFRESH_MS);
     return () => clearInterval(intervalId);
   }, []);
+
+  // Kalau navigasi dari "Scale Workloads" per-namespace (DashboardPage), sinkronkan
+  // filter di sini dengan namespace yang dipilih di sidebar.
+  useEffect(() => {
+    setFilterNamespace(initialNamespace);
+  }, [initialNamespace]);
+
+  const handleFilterChange = (value) => {
+    setFilterNamespace(value);
+    if (onNamespaceFilterChange) onNamespaceFilterChange(value);
+  };
+
+  const filteredServices = services.filter(
+    (svc) => filterNamespace === 'All' || svc.namespace === filterNamespace
+  );
 
   const runAction = async (svc, actionLabel, fn) => {
     const key = `${svc.namespace}/${svc.name}`;
@@ -62,6 +80,19 @@ export default function AppServicesView() {
           <h2>App Services</h2>
           <p>Start, stop, restart, dan atur jumlah replica Deployment langsung dari sini</p>
         </div>
+        <div className="view-actions-group">
+          <select
+            value={filterNamespace}
+            onChange={(e) => handleFilterChange(e.target.value)}
+            className="dash-form-select"
+            style={{ width: '180px' }}
+          >
+            <option value="All">All Namespaces</option>
+            {namespaces.map((ns) => (
+              <option key={ns.name} value={ns.name}>{ns.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {notice && (
@@ -90,13 +121,15 @@ export default function AppServicesView() {
 
       {loading ? (
         <div style={{ padding: '20px', color: '#64748B' }}>Loading services...</div>
-      ) : services.length === 0 ? (
+      ) : filteredServices.length === 0 ? (
         <div style={{ color: '#64748B', textAlign: 'center', padding: '40px 0', backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
-          Belum ada Deployment di cluster ini.
+          {services.length === 0
+            ? 'Belum ada Deployment di cluster ini.'
+            : `Tidak ada Deployment di namespace "${filterNamespace}".`}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {services.map((svc) => {
+          {filteredServices.map((svc) => {
             const key = `${svc.namespace}/${svc.name}`;
             const status = deploymentStatus(svc);
             const isPending = pendingAction === key;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Cpu, HardDrive, Database, Server, ShieldCheck, CheckCircle2, RefreshCw, ArrowUpRight, History, AlertTriangle, ArrowRightLeft } from 'lucide-react';
+import { Activity, Cpu, HardDrive, Database, Server, ShieldCheck, CheckCircle2, RefreshCw, History, AlertTriangle, ArrowRightLeft } from 'lucide-react';
 import { apiClient } from '../../../services/api';
 
 const EVENT_REASON_STYLE = {
@@ -26,7 +26,15 @@ function formatRelativeTime(isoTime) {
   return `${Math.floor(diffSeconds / 86400)}d ago`;
 }
 
-export default function ClusterOverviewView({ onNavigate }) {
+// Sama seperti threshold di AlertService (backend): warna cuma berubah jadi
+// merah kalau memang mendekati kapasitas, bukan warna hias per-kartu — supaya
+// warna berarti "perhatikan ini", bukan sekadar dekorasi (Fitur 1).
+const NEAR_CAPACITY_PERCENT = 85;
+function fillColor(percent) {
+  return percent >= NEAR_CAPACITY_PERCENT ? '#EF4444' : '#284C6E';
+}
+
+export default function ClusterOverviewView() {
   const [clusterData, setClusterData] = useState(null);
   const [events, setEvents] = useState([]);
 
@@ -76,7 +84,7 @@ export default function ClusterOverviewView({ onNavigate }) {
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Total CPU Usage</span><Cpu style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.cpu.used} / {clusterData.cpu.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.cpu.unit}</span></div>
-          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.cpu.percent}%`, backgroundColor: '#284C6E' }} /></div>
+          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.cpu.percent}%`, backgroundColor: fillColor(clusterData.cpu.percent) }} /></div>
           <div className="metric-card-subtext">
             {clusterData.metricsAvailable
               ? <><strong>{clusterData.cpu.percent}%</strong> capacity utilized</>
@@ -88,7 +96,7 @@ export default function ClusterOverviewView({ onNavigate }) {
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Aggregated Memory</span><Activity style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.ram.used} / {clusterData.ram.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.ram.unit}</span></div>
-          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.ram.percent}%`, backgroundColor: '#0284C7' }} /></div>
+          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.ram.percent}%`, backgroundColor: fillColor(clusterData.ram.percent) }} /></div>
           <div className="metric-card-subtext">
             {clusterData.metricsAvailable
               ? <><strong>{clusterData.ram.percent}%</strong> in use ({clusterData.ram.available} available)</>
@@ -100,7 +108,7 @@ export default function ClusterOverviewView({ onNavigate }) {
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Cluster Disk Capacity</span><HardDrive style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.disk.used} / {clusterData.disk.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.disk.unit}</span></div>
-          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.disk.percent}%`, backgroundColor: '#10B981' }} /></div>
+          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.disk.percent}%`, backgroundColor: fillColor(clusterData.disk.percent) }} /></div>
           <div className="metric-card-subtext">
             {clusterData.metricsAvailable
               ? <><strong>{clusterData.disk.percent}%</strong> {clusterData.disk.source}</>
@@ -112,7 +120,7 @@ export default function ClusterOverviewView({ onNavigate }) {
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Persistent Volume Allocation</span><Database style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.storage.used} / {clusterData.storage.total} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>{clusterData.storage.unit}</span></div>
-          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.storage.percent}%`, backgroundColor: '#7C3AED' }} /></div>
+          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${clusterData.storage.percent}%`, backgroundColor: fillColor(clusterData.storage.percent) }} /></div>
           <div className="metric-card-subtext"><strong>{clusterData.storage.percent}%</strong> {clusterData.storage.source}</div>
         </div>
 
@@ -120,7 +128,7 @@ export default function ClusterOverviewView({ onNavigate }) {
         <div className="metric-stat-card">
           <div className="metric-card-top"><span className="metric-card-title">Pods Capacity</span><Server style={{ width: '18px', height: '18px' }} /></div>
           <div className="metric-card-value">{clusterData.podsCapacity.active} / {clusterData.podsCapacity.max} <span style={{ fontSize: '0.9rem', color: '#64748B' }}>Pods</span></div>
-          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${podsPercent}%`, backgroundColor: '#F59E0B' }} /></div>
+          <div className="metric-progress-track"><div className="metric-progress-fill" style={{ width: `${podsPercent}%`, backgroundColor: fillColor(podsPercent) }} /></div>
           <div className="metric-card-subtext">{clusterData.podsCapacity.running} Running • {clusterData.podsCapacity.crash} CrashLoopBackOff</div>
         </div>
       </div>
